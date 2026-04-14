@@ -1,0 +1,500 @@
+:root {
+  --bg: #0f1115;
+  --panel: #171a21;
+  --panel-2: #1d2230;
+  --tile: #232938;
+  --tile-border: #2f3747;
+  --text: #f4f6fb;
+  --muted: #9aa6bb;
+  --strike: #5dbe69;
+  --ball: #d4b24d;
+  --out: #586273;
+  --danger: #ff6a6a;
+  --shadow: 0 24px 80px rgba(0, 0, 0, 0.35);
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  min-height: 100%;
+  margin: 0;
+  background:
+    radial-gradient(circle at top, rgba(72, 92, 141, 0.2), transparent 45%),
+    linear-gradient(180deg, #141824 0%, #0f1115 100%);
+  color: var(--text);
+  font-family:
+    Inter,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+}
+
+body {
+  min-height: 100svh;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+.pageShell {
+  min-height: 100svh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding:
+    calc(env(safe-area-inset-top) + 16px)
+    calc(env(safe-area-inset-right) + 16px)
+    calc(env(safe-area-inset-bottom) + 16px)
+    calc(env(safe-area-inset-left) + 16px);
+}
+
+.gameCard {
+  width: min(100%, 460px);
+  background: rgba(10, 13, 20, 0.66);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 28px;
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(18px);
+  overflow: clip;
+}
+
+.hero {
+  padding: 18px 18px 14px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent),
+    linear-gradient(180deg, rgba(29, 34, 48, 0.9), rgba(18, 21, 29, 0.92));
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.heroTitle {
+  margin: 0;
+  font-size: 1.65rem;
+  line-height: 1;
+  letter-spacing: -0.04em;
+}
+
+.heroCopy {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
+.statsRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.statChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text);
+  font-size: 0.82rem;
+  line-height: 1;
+}
+
+.body {
+  position: relative;
+  padding: 18px;
+}
+
+.banner {
+  margin-bottom: 14px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.bannerTitle {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.bannerCopy {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.board {
+  display: grid;
+  gap: 10px;
+}
+
+.boardRow {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.boardRow--shake {
+  animation: shake 220ms linear 1;
+}
+
+.tile {
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  border-radius: 16px;
+  border: 1px solid var(--tile-border);
+  background: var(--tile);
+  color: var(--text);
+  font-size: 1.55rem;
+  font-weight: 800;
+  text-transform: none;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.tile--filled {
+  background: #262d3d;
+}
+
+.tile--empty {
+  color: rgba(154, 166, 187, 0.35);
+}
+
+.tile--strike {
+  background: var(--strike);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: #f7fff8;
+}
+
+.tile--ball {
+  background: var(--ball);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: #1d1701;
+}
+
+.tile--out {
+  background: var(--out);
+  border-color: rgba(255, 255, 255, 0.08);
+  color: #eef2f7;
+}
+
+.keyboard {
+  display: grid;
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.keyboardSection {
+  display: grid;
+  gap: 8px;
+}
+
+.keyboardSectionTitle {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.keyboardRow {
+  display: grid;
+  gap: 6px;
+}
+
+.keyboardRow--offset-1 {
+  padding-inline-start: 12px;
+  padding-inline-end: 12px;
+}
+
+.keyboardRow--offset-2 {
+  padding-inline-start: 24px;
+  padding-inline-end: 24px;
+}
+
+.key {
+  position: relative;
+  min-height: 48px;
+  border: 0;
+  border-radius: 14px;
+  background: #273042;
+  color: var(--text);
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  user-select: none;
+  padding: 8px 6px;
+  transition:
+    transform 0.12s ease,
+    background 0.12s ease,
+    color 0.12s ease,
+    opacity 0.12s ease;
+}
+
+.key:active {
+  transform: translateY(1px) scale(0.98);
+}
+
+.key--wide {
+  min-width: 0;
+  font-size: 0.84rem;
+}
+
+.key--strike {
+  background: var(--strike);
+  color: #f7fff8;
+}
+
+.key--ball {
+  background: var(--ball);
+  color: #1d1701;
+}
+
+.key--out {
+  background: var(--out);
+  color: #eef2f7;
+}
+
+.key--danger {
+  background: linear-gradient(180deg, #7d3245, #612636);
+  color: #fff5f7;
+}
+
+.key--disabled {
+  opacity: 0.48;
+}
+
+.keyLabel {
+  position: relative;
+  z-index: 1;
+}
+
+.keyHint {
+  display: none;
+}
+
+.footerHint {
+  margin-top: 14px;
+  color: var(--muted);
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+.hintActions {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.hintButton {
+  min-height: 70px;
+  padding: 10px 8px;
+  line-height: 1.05;
+  gap: 4px;
+}
+
+.hintButtonTitle {
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.hintButtonNote {
+  font-size: 0.68rem;
+  color: inherit;
+  opacity: 0.92;
+}
+
+.hintButtonCount {
+  font-size: 0.72rem;
+  color: inherit;
+  opacity: 0.88;
+}
+
+.hintButton--remove {
+  background: linear-gradient(180deg, #4b5565, #363d4c);
+  color: #f4f7fb;
+}
+
+.hintButton--yellow {
+  background: linear-gradient(180deg, #8a6a18, #6e5208);
+  color: #fff4cf;
+}
+
+.hintButton--green {
+  background: linear-gradient(180deg, #235c35, #173d23);
+  color: #e9ffef;
+}
+
+.shareActions {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.actionButton {
+  width: 100%;
+  text-decoration: none;
+  text-align: center;
+}
+
+.toast {
+  position: sticky;
+  bottom: 14px;
+  margin-top: 16px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: rgba(28, 32, 42, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--text);
+  box-shadow: var(--shadow);
+  opacity: 0;
+  transform: translateY(8px);
+  transition:
+    opacity 0.18s ease,
+    transform 0.18s ease;
+}
+
+.toast--visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.toast--danger {
+  border-color: rgba(255, 106, 106, 0.22);
+  color: #ffd6d6;
+}
+
+.loadingState {
+  min-height: 56svh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  text-align: center;
+}
+
+.loadingCard {
+  max-width: 320px;
+  padding: 28px 24px;
+  border-radius: 24px;
+  background: rgba(10, 13, 20, 0.66);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: var(--shadow);
+}
+
+.spinner {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 255, 255, 0.14);
+  border-top-color: var(--strike);
+  margin: 0 auto 14px;
+  animation: spin 0.9s linear infinite;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@keyframes shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-4px);
+  }
+  50% {
+    transform: translateX(4px);
+  }
+  75% {
+    transform: translateX(-2px);
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 420px) {
+  .gameCard {
+    border-radius: 24px;
+  }
+
+  .hero,
+  .body {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+
+  .boardRow {
+    gap: 8px;
+  }
+
+  .keyboardRow {
+    gap: 5px;
+  }
+
+  .hintActions {
+    gap: 8px;
+  }
+
+  .hintButton {
+    min-height: 64px;
+    padding: 8px 6px;
+  }
+
+  .hintButtonTitle {
+    font-size: 0.75rem;
+  }
+
+  .hintButtonNote {
+    font-size: 0.62rem;
+  }
+
+  .hintButtonCount {
+    font-size: 0.66rem;
+  }
+
+  .tile {
+    border-radius: 14px;
+    font-size: 1.35rem;
+  }
+
+  .key {
+    min-height: 44px;
+    border-radius: 13px;
+  }
+}
