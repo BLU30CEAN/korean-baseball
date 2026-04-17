@@ -1,11 +1,5 @@
 import { NextResponse } from "next/server";
-import {
-  ensureSheetsSchema,
-  hasNickname,
-  normalizeNickname,
-  registerNickname,
-  updateLastSeen,
-} from "@/lib/server/sheets";
+import { callAppsScript } from "@/lib/server/apps-script";
 
 interface RegisterBody {
   nickname?: string;
@@ -15,7 +9,7 @@ interface RegisterBody {
 export async function POST(request: Request) {
   try {
     const body = (await request.json()) as RegisterBody;
-    const nickname = normalizeNickname(body.nickname ?? "");
+    const nickname = String(body.nickname ?? "").trim().replace(/\s+/g, " ");
     const isNewUser = Boolean(body.isNewUser);
 
     if (!nickname || nickname.length < 2 || nickname.length > 20) {
@@ -25,30 +19,27 @@ export async function POST(request: Request) {
       );
     }
 
-    await ensureSheetsSchema();
-    const exists = await hasNickname(nickname);
+    const result = await callAppsScript<{
+      ok?: boolean;
+      error?: string;
+      created?: boolean;
+    }>("registerNickname", {
+      nickname,
+      isNewUser,
+    });
 
-    if (isNewUser) {
-      if (exists) {
-        return NextResponse.json(
-          { ok: false, error: "이미 사용 중인 닉네임이다." },
-          { status: 409 },
-        );
-      }
-
-      await registerNickname(nickname);
-      return NextResponse.json({ ok: true, nickname, created: true });
-    }
-
-    if (!exists) {
+    if (!result.ok) {
       return NextResponse.json(
-        { ok: false, error: "등록되지 않은 닉네임이다. 신규 사용자로 가입해라." },
-        { status: 404 },
+        { ok: false, error: result.error ?? "닉네임 인증에 실패했다." },
+        { status: 400 },
       );
     }
 
-    await updateLastSeen(nickname);
-    return NextResponse.json({ ok: true, nickname, created: false });
+    return NextResponse.json({
+      ok: true,
+      nickname,
+      created: Boolean(result.created),
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : "서버 오류";
     return NextResponse.json({ ok: false, error: message }, { status: 500 });

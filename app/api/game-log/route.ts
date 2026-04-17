@@ -1,30 +1,38 @@
 import { NextResponse } from "next/server";
-import {
-  appendGameLog,
-  ensureSheetsSchema,
-  hasNickname,
-  normalizeNickname,
-  type GameLogPayload,
-} from "@/lib/server/sheets";
+import { callAppsScript } from "@/lib/server/apps-script";
 
-interface GameLogBody extends Partial<GameLogPayload> {}
+interface GameLogBody {
+  nickname?: string;
+  problemNo?: string;
+  rowType?: "attempt" | "result";
+  attemptNo?: number;
+  guess?: string;
+  marks?: string;
+  answerWord?: string;
+  answerJamo?: string;
+  outcome?: "won" | "lost" | "attempt";
+  reason?: "solved" | "exhausted" | "give-up" | "attempt";
+  attemptCount?: number;
+  hintRemoveUsed?: number;
+  hintYellowUsed?: number;
+  hintGreenUsed?: number;
+  securityRetryErrors?: number;
+  securityPhonePrefix?: string;
+  securityMiddle4?: string;
+  securityAccount2?: string;
+  attemptGuesses?: string;
+}
 
 export async function POST(request: Request) {
   try {
     const body = (await request.json()) as GameLogBody;
-    const nickname = normalizeNickname(body.nickname ?? "");
+    const nickname = String(body.nickname ?? "").trim().replace(/\s+/g, " ");
 
     if (!nickname) {
       return NextResponse.json({ ok: false, error: "닉네임이 필요하다." }, { status: 400 });
     }
 
-    await ensureSheetsSchema();
-
-    if (!(await hasNickname(nickname))) {
-      return NextResponse.json({ ok: false, error: "등록되지 않은 닉네임이다." }, { status: 404 });
-    }
-
-    const payload: GameLogPayload = {
+    const payload = {
       nickname,
       problemNo: String(body.problemNo ?? ""),
       rowType: body.rowType === "attempt" ? "attempt" : "result",
@@ -52,7 +60,11 @@ export async function POST(request: Request) {
       attemptGuesses: String(body.attemptGuesses ?? ""),
     };
 
-    await appendGameLog(payload);
+    const result = await callAppsScript<{ ok?: boolean; error?: string }>("appendGameLog", payload);
+    if (!result.ok) {
+      return NextResponse.json({ ok: false, error: result.error ?? "시트 저장 실패" }, { status: 400 });
+    }
+
     return NextResponse.json({ ok: true });
   } catch (error) {
     const message = error instanceof Error ? error.message : "서버 오류";

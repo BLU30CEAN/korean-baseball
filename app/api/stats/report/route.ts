@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { ensureSheetsSchema, listGameLogs, listMemberNicknames } from "@/lib/server/sheets";
+import { callAppsScript } from "@/lib/server/apps-script";
 
 interface StatsRequestBody {
   password?: string;
@@ -13,6 +13,29 @@ interface RankingRow {
   totalGames: number;
   winRate: number;
   bestAttemptCount: number;
+}
+
+interface DetailLogRow {
+  timestamp: string;
+  nickname: string;
+  problemNo: string;
+  rowType: "attempt" | "result";
+  attemptNo: number;
+  guess: string;
+  marks: string;
+  answerWord: string;
+  answerJamo: string;
+  outcome: "won" | "lost" | "attempt";
+  reason: "solved" | "exhausted" | "give-up" | "attempt";
+  attemptCount: number;
+  hintRemoveUsed: number;
+  hintYellowUsed: number;
+  hintGreenUsed: number;
+  securityRetryErrors: number;
+  securityPhonePrefix: string;
+  securityMiddle4: string;
+  securityAccount2: string;
+  attemptGuesses: string;
 }
 
 function getStatsPassword(): string {
@@ -33,10 +56,20 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, error: "비밀번호가 올바르지 않다." }, { status: 401 });
     }
 
-    await ensureSheetsSchema();
-    const members = await listMemberNicknames();
-    const allLogs = await listGameLogs();
-    const resultLogs = allLogs.filter((row) => row.rowType === "result");
+    const source = await callAppsScript<{
+      ok?: boolean;
+      error?: string;
+      members?: string[];
+      logs?: DetailLogRow[];
+    }>("fetchStatsData", {});
+
+    if (!source.ok) {
+      return NextResponse.json({ ok: false, error: source.error ?? "통계 조회 실패" }, { status: 400 });
+    }
+
+    const members = source.members ?? [];
+    const allLogs = source.logs ?? [];
+    const resultLogs = allLogs.filter((row) => row.outcome === "won" || row.outcome === "lost");
 
     const byNickname = new Map<string, RankingRow>();
     for (const row of resultLogs) {
