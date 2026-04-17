@@ -28,7 +28,18 @@ export async function callAppsScript<T extends AppsScriptBaseResponse>(
     cache: "no-store",
   });
 
-  const data = (await response.json()) as T;
+  const raw = await response.text();
+  let data: T;
+
+  try {
+    data = JSON.parse(raw) as T;
+  } catch {
+    const preview = raw.slice(0, 120).replace(/\s+/g, " ").trim();
+    throw new Error(
+      `Apps Script가 JSON이 아닌 응답을 반환했다. Web App URL(/exec)과 공개 권한을 확인해라. status=${response.status}, body=${preview}`,
+    );
+  }
+
   if (!response.ok) {
     throw new Error(data.error ?? `Apps Script request failed (${response.status})`);
   }

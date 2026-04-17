@@ -428,7 +428,14 @@ export default function WordBaseballGame({
         // Keep gameplay running even if log upload fails.
       }
     },
-    [answer, gameSessionId, hintCounts, nickname, securityAnswers, securityRetryErrors],
+    [
+      answer,
+      gameSessionId,
+      hintCounts,
+      nickname,
+      securityAnswers,
+      securityRetryErrors,
+    ],
   );
 
   const resetGame = useCallback(() => {
@@ -550,7 +557,12 @@ export default function WordBaseballGame({
     }
 
     if (nextAttemptCount >= MAX_ATTEMPTS) {
-      void sendAttemptLog(currentAttempt, nextAttemptCount, "lost", "exhausted");
+      void sendAttemptLog(
+        currentAttempt,
+        nextAttemptCount,
+        "lost",
+        "exhausted",
+      );
       finalizeGame("exhausted", nextHistory);
       return;
     }
@@ -851,8 +863,8 @@ export default function WordBaseballGame({
       <main className="loadingState">
         <div className="loadingCard authCard">
           <h1 className="heroTitle">닉네임 확인</h1>
-          <p className="heroCopy">
-            닉네임을 입력하고 시작해라. \n 중복 닉네임은 허용되지 않는다.
+          <p>
+            {`닉네임을 입력하고 시작해라. \n중복 닉네임은 허용되지 않는다.`}
           </p>
           <input
             className="authInput"
