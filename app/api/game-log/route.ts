@@ -27,13 +27,20 @@ export async function POST(request: Request) {
     const payload: GameLogPayload = {
       nickname,
       problemNo: String(body.problemNo ?? ""),
+      rowType: body.rowType === "attempt" ? "attempt" : "result",
+      attemptNo: Number.isFinite(body.attemptNo) ? Number(body.attemptNo) : 0,
+      guess: String(body.guess ?? ""),
+      marks: String(body.marks ?? ""),
       answerWord: String(body.answerWord ?? ""),
       answerJamo: String(body.answerJamo ?? ""),
-      outcome: body.outcome === "won" ? "won" : "lost",
+      outcome: body.outcome === "won" || body.outcome === "attempt" ? body.outcome : "lost",
       reason:
-        body.reason === "solved" || body.reason === "exhausted" || body.reason === "give-up"
+        body.reason === "solved" ||
+        body.reason === "exhausted" ||
+        body.reason === "give-up" ||
+        body.reason === "attempt"
           ? body.reason
-          : "exhausted",
+          : "attempt",
       attemptCount: Number.isFinite(body.attemptCount) ? Number(body.attemptCount) : 0,
       hintRemoveUsed: Number.isFinite(body.hintRemoveUsed) ? Number(body.hintRemoveUsed) : 0,
       hintYellowUsed: Number.isFinite(body.hintYellowUsed) ? Number(body.hintYellowUsed) : 0,

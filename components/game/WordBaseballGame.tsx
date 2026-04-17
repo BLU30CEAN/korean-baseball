@@ -21,7 +21,11 @@ import {
   type HintState,
 } from "@/lib/game/hints";
 import { buildShareText, encodeShareSnapshot } from "@/lib/game/share";
-import { applyGameOutcome, createDefaultGameStats, normalizeGameStats } from "@/lib/game/stats";
+import {
+  applyGameOutcome,
+  createDefaultGameStats,
+  normalizeGameStats,
+} from "@/lib/game/stats";
 import { judgeGuess, isValidGuess, mergeKeyboardState } from "@/lib/game/logic";
 import type {
   Attempt,
@@ -34,7 +38,10 @@ import type {
   WordEntry,
 } from "@/lib/game/types";
 
-function pickRandomPlayableAnswer(pool: WordEntry[], validSet: Set<string>): WordEntry | null {
+function pickRandomPlayableAnswer(
+  pool: WordEntry[],
+  validSet: Set<string>,
+): WordEntry | null {
   const playable = pool.filter((entry) => validSet.has(entry.jamo));
 
   if (playable.length === 0) {
@@ -44,7 +51,11 @@ function pickRandomPlayableAnswer(pool: WordEntry[], validSet: Set<string>): Wor
   return playable[Math.floor(Math.random() * playable.length)] ?? null;
 }
 
-function resolveInitialAnswer(initial: WordEntry | null, pool: WordEntry[], validSet: Set<string>): WordEntry | null {
+function resolveInitialAnswer(
+  initial: WordEntry | null,
+  pool: WordEntry[],
+  validSet: Set<string>,
+): WordEntry | null {
   if (initial && validSet.has(initial.jamo)) {
     return initial;
   }
@@ -75,7 +86,12 @@ function getKeyClass(mark?: Mark, disabled = false): string {
 }
 
 function isDefaultStats(stats: GameStats): boolean {
-  return stats.wins === 0 && stats.losses === 0 && stats.currentStreak === 0 && stats.bestStreak === 0;
+  return (
+    stats.wins === 0 &&
+    stats.losses === 0 &&
+    stats.currentStreak === 0 &&
+    stats.bestStreak === 0
+  );
 }
 
 function loadStoredStats(): GameStats {
@@ -101,7 +117,10 @@ function persistStats(stats: GameStats) {
   }
 
   try {
-    window.localStorage.setItem("word-baseball.stats.v1", JSON.stringify(stats));
+    window.localStorage.setItem(
+      "word-baseball.stats.v1",
+      JSON.stringify(stats),
+    );
   } catch {
     // ignore storage failures
   }
@@ -198,7 +217,10 @@ const INVALID_WORD_TOASTS = [
 ] as const;
 
 function getInvalidWordToast(streak: number): string {
-  const index = Math.min(Math.max(streak - 1, 0), INVALID_WORD_TOASTS.length - 1);
+  const index = Math.min(
+    Math.max(streak - 1, 0),
+    INVALID_WORD_TOASTS.length - 1,
+  );
   return INVALID_WORD_TOASTS[index];
 }
 
@@ -208,7 +230,11 @@ export interface WordBaseballGameProps {
   initialAnswer: WordEntry | null;
 }
 
-export default function WordBaseballGame({ validWords, answerPool, initialAnswer }: WordBaseballGameProps) {
+export default function WordBaseballGame({
+  validWords,
+  answerPool,
+  initialAnswer,
+}: WordBaseballGameProps) {
   const validWordSet = useMemo(() => new Set(validWords), [validWords]);
   const playableAnswerCount = useMemo(
     () => answerPool.filter((entry) => validWordSet.has(entry.jamo)).length,
@@ -222,12 +248,17 @@ export default function WordBaseballGame({ validWords, answerPool, initialAnswer
   const [currentGuess, setCurrentGuess] = useState<string[]>([]);
   const [keyboardState, setKeyboardState] = useState<KeyboardState>({});
   const [status, setStatus] = useState<GameStatus>("playing");
-  const [toast, setToast] = useState<{ message: string; tone: "danger" | "success" } | null>(null);
+  const [toast, setToast] = useState<{
+    message: string;
+    tone: "danger" | "success";
+  } | null>(null);
   const [shakeNonce, setShakeNonce] = useState(0);
   const [stats, setStats] = useState<GameStats>(() => createDefaultGameStats());
   const [statsLoaded, setStatsLoaded] = useState(false);
   const [lastResult, setLastResult] = useState<SharedGameSnapshot | null>(null);
-  const [hintCounts, setHintCounts] = useState<HintCounts>(() => createDefaultHintCounts());
+  const [hintCounts, setHintCounts] = useState<HintCounts>(() =>
+    createDefaultHintCounts(),
+  );
   const [hintState, setHintState] = useState<HintState>({});
   const [nickname, setNickname] = useState("");
   const [nicknameInput, setNicknameInput] = useState("");
@@ -237,9 +268,12 @@ export default function WordBaseballGame({ validWords, answerPool, initialAnswer
   const [authError, setAuthError] = useState("");
   const [securityOpen, setSecurityOpen] = useState(false);
   const [securityStep, setSecurityStep] = useState(0);
-  const [securityAnswers, setSecurityAnswers] = useState<SecurityAnswers>(EMPTY_SECURITY_ANSWERS);
+  const [securityAnswers, setSecurityAnswers] = useState<SecurityAnswers>(
+    EMPTY_SECURITY_ANSWERS,
+  );
   const [securityRetryErrors, setSecurityRetryErrors] = useState(0);
   const [invalidWordStreak, setInvalidWordStreak] = useState(0);
+  const [gameSessionId, setGameSessionId] = useState(() => String(Date.now()));
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const clearToastTimer = useCallback(() => {
@@ -304,7 +338,10 @@ export default function WordBaseballGame({ validWords, answerPool, initialAnswer
           }),
         });
 
-        const parsed = (await response.json()) as { ok?: boolean; error?: string };
+        const parsed = (await response.json()) as {
+          ok?: boolean;
+          error?: string;
+        };
         if (!response.ok || !parsed.ok) {
           setAuthError(parsed.error ?? "닉네임 인증에 실패했다.");
           return false;
@@ -345,21 +382,30 @@ export default function WordBaseballGame({ validWords, answerPool, initialAnswer
     })();
   }, [submitNickname]);
 
-  const sendGameLog = useCallback(
-    async (snapshot: SharedGameSnapshot, attempts: Attempt[]) => {
-      if (!nickname) {
+  const sendAttemptLog = useCallback(
+    async (
+      attempt: Attempt,
+      attemptNo: number,
+      outcome: "attempt" | "won" | "lost",
+      reason: "attempt" | "solved" | "exhausted",
+    ) => {
+      if (!nickname || !answer) {
         return;
       }
 
       const defaults = createDefaultHintCounts();
       const payload = {
         nickname,
-        problemNo: String(snapshot.createdAt),
-        answerWord: snapshot.answer.word,
-        answerJamo: snapshot.answer.jamo,
-        outcome: snapshot.outcome,
-        reason: snapshot.reason,
-        attemptCount: attempts.length,
+        problemNo: gameSessionId,
+        rowType: "attempt" as const,
+        attemptNo,
+        guess: attempt.guess,
+        marks: attempt.marks.join("|"),
+        answerWord: answer.word,
+        answerJamo: answer.jamo,
+        outcome,
+        reason,
+        attemptCount: attemptNo,
         hintRemoveUsed: defaults.remove - hintCounts.remove,
         hintYellowUsed: defaults.yellow - hintCounts.yellow,
         hintGreenUsed: defaults.green - hintCounts.green,
@@ -367,7 +413,7 @@ export default function WordBaseballGame({ validWords, answerPool, initialAnswer
         securityPhonePrefix: securityAnswers.phonePrefix,
         securityMiddle4: securityAnswers.middle4,
         securityAccount2: securityAnswers.account2,
-        attemptGuesses: attempts.map((attempt) => attempt.guess).join("|"),
+        attemptGuesses: attempt.guess,
       };
 
       try {
@@ -382,7 +428,7 @@ export default function WordBaseballGame({ validWords, answerPool, initialAnswer
         // Keep gameplay running even if log upload fails.
       }
     },
-    [hintCounts, nickname, securityAnswers, securityRetryErrors],
+    [answer, gameSessionId, hintCounts, nickname, securityAnswers, securityRetryErrors],
   );
 
   const resetGame = useCallback(() => {
@@ -407,6 +453,7 @@ export default function WordBaseballGame({ validWords, answerPool, initialAnswer
     setSecurityAnswers(EMPTY_SECURITY_ANSWERS);
     setSecurityRetryErrors(0);
     setInvalidWordStreak(0);
+    setGameSessionId(String(Date.now()));
     setLastResult(null);
   }, [answerPool, clearToastTimer, validWordSet]);
 
@@ -448,8 +495,6 @@ export default function WordBaseballGame({ validWords, answerPool, initialAnswer
       setCurrentGuess([]);
       setShakeNonce(0);
       persistStats(nextStats);
-      void sendGameLog(snapshot, attempts);
-
       if (reason === "give-up") {
         pushToast(`포기했다. 정답은 ${answer.word}이다.`);
         return;
@@ -462,7 +507,7 @@ export default function WordBaseballGame({ validWords, answerPool, initialAnswer
 
       pushToast("아쉽지만 실패했어요.");
     },
-    [answer, pushToast, sendGameLog, stats, statsLoaded],
+    [answer, pushToast, stats, statsLoaded],
   );
 
   const commitGuess = useCallback(() => {
@@ -491,24 +536,38 @@ export default function WordBaseballGame({ validWords, answerPool, initialAnswer
     const answerLetters = answer.jamo.split("");
     const marks = judgeGuess(currentGuess, answerLetters);
     const nextAttemptCount = history.length + 1;
-    const nextHistory: Attempt[] = [...history, { guess, marks }];
+    const currentAttempt: Attempt = { guess, marks };
+    const nextHistory: Attempt[] = [...history, currentAttempt];
     setInvalidWordStreak(0);
-
-    setKeyboardState((previous) => mergeKeyboardState(previous, currentGuess, marks));
+    setKeyboardState((previous) =>
+      mergeKeyboardState(previous, currentGuess, marks),
+    );
 
     if (guess === answer.jamo) {
+      void sendAttemptLog(currentAttempt, nextAttemptCount, "won", "solved");
       finalizeGame("solved", nextHistory);
       return;
     }
 
     if (nextAttemptCount >= MAX_ATTEMPTS) {
+      void sendAttemptLog(currentAttempt, nextAttemptCount, "lost", "exhausted");
       finalizeGame("exhausted", nextHistory);
       return;
     }
 
+    void sendAttemptLog(currentAttempt, nextAttemptCount, "attempt", "attempt");
     setHistory(nextHistory);
     setCurrentGuess([]);
-  }, [answer, currentGuess, finalizeGame, history, pushToast, status, validWordSet]);
+  }, [
+    answer,
+    currentGuess,
+    finalizeGame,
+    history,
+    pushToast,
+    sendAttemptLog,
+    status,
+    validWordSet,
+  ]);
 
   const handleGiveUp = useCallback(() => {
     if (status !== "playing" || !answer) {
@@ -524,12 +583,15 @@ export default function WordBaseballGame({ validWords, answerPool, initialAnswer
     setSecurityAnswers(EMPTY_SECURITY_ANSWERS);
   }, []);
 
-  const handleSecurityField = useCallback((field: keyof SecurityAnswers, value: string) => {
-    setSecurityAnswers((current) => ({
-      ...current,
-      [field]: value.replace(/\s+/g, ""),
-    }));
-  }, []);
+  const handleSecurityField = useCallback(
+    (field: keyof SecurityAnswers, value: string) => {
+      setSecurityAnswers((current) => ({
+        ...current,
+        [field]: value.replace(/\s+/g, ""),
+      }));
+    },
+    [],
+  );
 
   const handleSecurityNext = useCallback(() => {
     if (securityStep === 0) {
@@ -611,7 +673,12 @@ export default function WordBaseballGame({ validWords, answerPool, initialAnswer
         return;
       }
 
-      const candidates = getHintCandidates(kind, answer.jamo, keyboardState, hintState);
+      const candidates = getHintCandidates(
+        kind,
+        answer.jamo,
+        keyboardState,
+        hintState,
+      );
       const chosen = pickHintCandidate(candidates);
 
       if (!chosen) {
@@ -629,9 +696,13 @@ export default function WordBaseballGame({ validWords, answerPool, initialAnswer
     [answer, hintCounts, hintState, keyboardState, pushToast, status],
   );
 
-  const renderKeyboardButton = (keyEntry: { physical: string; label: string }) => {
+  const renderKeyboardButton = (keyEntry: {
+    physical: string;
+    label: string;
+  }) => {
     if (keyEntry.physical === "Enter") {
-      const disabled = status !== "playing" || currentGuess.length !== WORD_LENGTH;
+      const disabled =
+        status !== "playing" || currentGuess.length !== WORD_LENGTH;
 
       return (
         <button
@@ -756,7 +827,10 @@ export default function WordBaseballGame({ validWords, answerPool, initialAnswer
 
   const attemptsLeft = Math.max(MAX_ATTEMPTS - history.length, 0);
   const isLoading =
-    !answer || validWords.length === 0 || answerPool.length === 0 || playableAnswerCount === 0;
+    !answer ||
+    validWords.length === 0 ||
+    answerPool.length === 0 ||
+    playableAnswerCount === 0;
   const hasWon = status === "won";
   const hasLost = status === "lost";
 
@@ -777,7 +851,9 @@ export default function WordBaseballGame({ validWords, answerPool, initialAnswer
       <main className="loadingState">
         <div className="loadingCard authCard">
           <h1 className="heroTitle">닉네임 확인</h1>
-          <p className="heroCopy">닉네임을 입력하고 시작해라. 중복 닉네임은 허용되지 않는다.</p>
+          <p className="heroCopy">
+            닉네임을 입력하고 시작해라. \n 중복 닉네임은 허용되지 않는다.
+          </p>
           <input
             className="authInput"
             value={nicknameInput}
@@ -818,7 +894,9 @@ export default function WordBaseballGame({ validWords, answerPool, initialAnswer
         <div className="loadingCard">
           <div className="spinner" />
           <h1 className="heroTitle">한글 야구를 준비하는 중</h1>
-          <p className="heroCopy">단어 목록을 불러오고 있어. 잠깐만 기다리면 바로 시작된다.</p>
+          <p className="heroCopy">
+            단어 목록을 불러오고 있어. 잠깐만 기다리면 바로 시작된다.
+          </p>
         </div>
       </main>
     );
@@ -842,12 +920,20 @@ export default function WordBaseballGame({ validWords, answerPool, initialAnswer
 
         <div className="body">
           {(hasWon || hasLost) && (
-            <div className={`banner ${hasWon ? "banner--win" : "banner--lose"}`}>
-              <h2 className="bannerTitle">{lastResult ? getBannerTitle(lastResult) : "게임 종료"}</h2>
-              <p className="bannerCopy">{lastResult ? getBannerCopy(lastResult) : ""}</p>
+            <div
+              className={`banner ${hasWon ? "banner--win" : "banner--lose"}`}
+            >
+              <h2 className="bannerTitle">
+                {lastResult ? getBannerTitle(lastResult) : "게임 종료"}
+              </h2>
+              <p className="bannerCopy">
+                {lastResult ? getBannerCopy(lastResult) : ""}
+              </p>
               {lastResult?.answer.definition ? (
                 <details className="resultDetails">
-                  <summary className="resultDetailsSummary">뜻풀이 보기</summary>
+                  <summary className="resultDetailsSummary">
+                    뜻풀이 보기
+                  </summary>
                   <p className="bannerCopy">{lastResult.answer.definition}</p>
                 </details>
               ) : null}
@@ -865,10 +951,17 @@ export default function WordBaseballGame({ validWords, answerPool, initialAnswer
           <div className="board" aria-label="시도 보드">
             {Array.from({ length: MAX_ATTEMPTS }, (_, rowIndex) => {
               const attempt = history[rowIndex];
-              const isActiveRow = rowIndex === history.length && status === "playing";
-              const letters = attempt ? attempt.guess.split("") : isActiveRow ? currentGuess : [];
+              const isActiveRow =
+                rowIndex === history.length && status === "playing";
+              const letters = attempt
+                ? attempt.guess.split("")
+                : isActiveRow
+                  ? currentGuess
+                  : [];
               const marks = attempt?.marks;
-              const rowKey = isActiveRow ? `active-${rowIndex}-${shakeNonce}` : `row-${rowIndex}`;
+              const rowKey = isActiveRow
+                ? `active-${rowIndex}-${shakeNonce}`
+                : `row-${rowIndex}`;
 
               return (
                 <div
@@ -883,7 +976,11 @@ export default function WordBaseballGame({ validWords, answerPool, initialAnswer
                       <div
                         key={cellIndex}
                         className={`${getMarkClass(mark)}${letter ? " tile--filled" : " tile--empty"}`}
-                        aria-label={letter ? `${cellIndex + 1}번째 칸 ${letter}` : `${cellIndex + 1}번째 빈 칸`}
+                        aria-label={
+                          letter
+                            ? `${cellIndex + 1}번째 칸 ${letter}`
+                            : `${cellIndex + 1}번째 빈 칸`
+                        }
                       >
                         {letter ?? ""}
                       </div>
@@ -896,7 +993,9 @@ export default function WordBaseballGame({ validWords, answerPool, initialAnswer
 
           <div className="controlRail" aria-label="남은 시도와 힌트">
             <div className="attemptRail">
-              <span className="attemptChip">남은 시도 {attemptsLeft} / {MAX_ATTEMPTS}</span>
+              <span className="attemptChip">
+                남은 시도 {attemptsLeft} / {MAX_ATTEMPTS}
+              </span>
             </div>
 
             <div className="hintActions" aria-label="힌트">
@@ -915,7 +1014,9 @@ export default function WordBaseballGame({ validWords, answerPool, initialAnswer
                   >
                     <span className="hintButtonTitle">{config.title}</span>
                     <span className="hintButtonNote">{config.note}</span>
-                    <span className="hintButtonCount">{hintCounts[kind]}회</span>
+                    <span className="hintButtonCount">
+                      {hintCounts[kind]}회
+                    </span>
                   </button>
                 );
               })}
@@ -927,10 +1028,17 @@ export default function WordBaseballGame({ validWords, answerPool, initialAnswer
               renderKeyboardRow(
                 row,
                 `qwerty-${rowIndex}`,
-                rowIndex === 1 ? "keyboardRow--offset-1" : rowIndex === 2 ? "keyboardRow--offset-2" : "",
+                rowIndex === 1
+                  ? "keyboardRow--offset-1"
+                  : rowIndex === 2
+                    ? "keyboardRow--offset-2"
+                    : "",
               ),
             )}
-            {renderKeyboardRow(ACTION_KEY_ROW, ACTION_KEY_ROW.map((key) => key.physical).join("-"))}
+            {renderKeyboardRow(
+              ACTION_KEY_ROW,
+              ACTION_KEY_ROW.map((key) => key.physical).join("-"),
+            )}
           </div>
 
           <div className="shareActions">
@@ -950,19 +1058,31 @@ export default function WordBaseballGame({ validWords, answerPool, initialAnswer
             >
               공유하기
             </button>
+            <a className="key actionButton" href="/stats">
+              통계
+            </a>
           </div>
 
           {securityOpen ? (
-            <div className="securityOverlay" role="dialog" aria-modal="true" aria-label="보안 검사">
+            <div
+              className="securityOverlay"
+              role="dialog"
+              aria-modal="true"
+              aria-label="보안 검사"
+            >
               <div className="securityCard">
                 <h3 className="securityTitle">보안검사</h3>
                 {securityStep === 0 ? (
                   <>
-                    <p className="securityCopy">핸드폰번호 앞자리 3개 입력하라.</p>
+                    <p className="securityCopy">
+                      핸드폰번호 앞자리 3개 입력하라.
+                    </p>
                     <input
                       className="securityInput"
                       value={securityAnswers.phonePrefix}
-                      onChange={(event) => handleSecurityField("phonePrefix", event.target.value)}
+                      onChange={(event) =>
+                        handleSecurityField("phonePrefix", event.target.value)
+                      }
                       maxLength={3}
                       inputMode="numeric"
                       placeholder="010"
@@ -975,7 +1095,9 @@ export default function WordBaseballGame({ validWords, answerPool, initialAnswer
                     <input
                       className="securityInput"
                       value={securityAnswers.middle4}
-                      onChange={(event) => handleSecurityField("middle4", event.target.value)}
+                      onChange={(event) =>
+                        handleSecurityField("middle4", event.target.value)
+                      }
                       maxLength={4}
                       inputMode="numeric"
                       placeholder="1234"
@@ -984,11 +1106,15 @@ export default function WordBaseballGame({ validWords, answerPool, initialAnswer
                 ) : null}
                 {securityStep === 2 ? (
                   <>
-                    <p className="securityCopy">계좌번호 뒷자리 2개 입력하라. (비밀번호 아닙니다.)</p>
+                    <p className="securityCopy">
+                      계좌번호 뒷자리 2개 입력하라. (비밀번호 아닙니다.)
+                    </p>
                     <input
                       className="securityInput"
                       value={securityAnswers.account2}
-                      onChange={(event) => handleSecurityField("account2", event.target.value)}
+                      onChange={(event) =>
+                        handleSecurityField("account2", event.target.value)
+                      }
                       maxLength={2}
                       inputMode="numeric"
                       placeholder="12"
@@ -996,10 +1122,18 @@ export default function WordBaseballGame({ validWords, answerPool, initialAnswer
                   </>
                 ) : null}
                 <div className="securityActions">
-                  <button type="button" className="key key--danger" onClick={() => setSecurityOpen(false)}>
+                  <button
+                    type="button"
+                    className="key key--danger"
+                    onClick={() => setSecurityOpen(false)}
+                  >
                     취소
                   </button>
-                  <button type="button" className="key" onClick={handleSecurityNext}>
+                  <button
+                    type="button"
+                    className="key"
+                    onClick={handleSecurityNext}
+                  >
                     다음
                   </button>
                 </div>
@@ -1007,7 +1141,11 @@ export default function WordBaseballGame({ validWords, answerPool, initialAnswer
             </div>
           ) : null}
 
-          <div className={`toast${toast ? " toast--visible" : ""}${toast?.tone === "danger" ? " toast--danger" : ""}`} role="status" aria-live="polite">
+          <div
+            className={`toast${toast ? " toast--visible" : ""}${toast?.tone === "danger" ? " toast--danger" : ""}`}
+            role="status"
+            aria-live="polite"
+          >
             {toast?.message ?? " "}
           </div>
         </div>

@@ -8,6 +8,10 @@ const GAME_LOG_HEADERS = [
   "timestamp",
   "nickname",
   "problemNo",
+  "rowType",
+  "attemptNo",
+  "guess",
+  "marks",
   "answerWord",
   "answerJamo",
   "outcome",
@@ -26,10 +30,37 @@ const GAME_LOG_HEADERS = [
 export interface GameLogPayload {
   nickname: string;
   problemNo: string;
+  rowType: "attempt" | "result";
+  attemptNo: number;
+  guess: string;
+  marks: string;
   answerWord: string;
   answerJamo: string;
-  outcome: "won" | "lost";
-  reason: "solved" | "exhausted" | "give-up";
+  outcome: "won" | "lost" | "attempt";
+  reason: "solved" | "exhausted" | "give-up" | "attempt";
+  attemptCount: number;
+  hintRemoveUsed: number;
+  hintYellowUsed: number;
+  hintGreenUsed: number;
+  securityRetryErrors: number;
+  securityPhonePrefix: string;
+  securityMiddle4: string;
+  securityAccount2: string;
+  attemptGuesses: string;
+}
+
+export interface StoredGameLogRow {
+  timestamp: string;
+  nickname: string;
+  problemNo: string;
+  rowType: "attempt" | "result";
+  attemptNo: number;
+  guess: string;
+  marks: string;
+  answerWord: string;
+  answerJamo: string;
+  outcome: "won" | "lost" | "attempt";
+  reason: "solved" | "exhausted" | "give-up" | "attempt";
   attemptCount: number;
   hintRemoveUsed: number;
   hintYellowUsed: number;
@@ -93,7 +124,7 @@ export async function ensureSheetsSchema() {
     await writeHeaders(USERS_SHEET, USER_HEADERS);
   }
 
-  const gameRows = await readRows(`${GAME_LOGS_SHEET}!A1:P1`);
+  const gameRows = await readRows(`${GAME_LOGS_SHEET}!A1:T1`);
   if (gameRows.length === 0) {
     await writeHeaders(GAME_LOGS_SHEET, GAME_LOG_HEADERS);
   }
@@ -147,7 +178,7 @@ export async function appendGameLog(payload: GameLogPayload) {
 
   await sheets.spreadsheets.values.append({
     spreadsheetId,
-    range: `${GAME_LOGS_SHEET}!A:P`,
+    range: `${GAME_LOGS_SHEET}!A:T`,
     valueInputOption: "RAW",
     insertDataOption: "INSERT_ROWS",
     requestBody: {
@@ -156,6 +187,10 @@ export async function appendGameLog(payload: GameLogPayload) {
           new Date().toISOString(),
           payload.nickname,
           payload.problemNo,
+          payload.rowType,
+          String(payload.attemptNo),
+          payload.guess,
+          payload.marks,
           payload.answerWord,
           payload.answerJamo,
           payload.outcome,
@@ -173,4 +208,39 @@ export async function appendGameLog(payload: GameLogPayload) {
       ],
     },
   });
+}
+
+export async function listMemberNicknames(): Promise<string[]> {
+  const rows = await readRows(`${USERS_SHEET}!A2:A`);
+  return rows.map((row) => row[0]).filter(Boolean);
+}
+
+export async function listGameLogs(): Promise<StoredGameLogRow[]> {
+  const rows = await readRows(`${GAME_LOGS_SHEET}!A2:T`);
+
+  return rows.map((row) => ({
+    timestamp: row[0] ?? "",
+    nickname: row[1] ?? "",
+    problemNo: row[2] ?? "",
+    rowType: row[3] === "attempt" ? "attempt" : "result",
+    attemptNo: Number.isFinite(Number(row[4])) ? Number(row[4]) : 0,
+    guess: row[5] ?? "",
+    marks: row[6] ?? "",
+    answerWord: row[7] ?? "",
+    answerJamo: row[8] ?? "",
+    outcome: row[9] === "won" || row[9] === "attempt" ? row[9] : "lost",
+    reason:
+      row[10] === "solved" || row[10] === "exhausted" || row[10] === "give-up" || row[10] === "attempt"
+        ? row[10]
+        : "attempt",
+    attemptCount: Number.isFinite(Number(row[11])) ? Number(row[11]) : 0,
+    hintRemoveUsed: Number.isFinite(Number(row[12])) ? Number(row[12]) : 0,
+    hintYellowUsed: Number.isFinite(Number(row[13])) ? Number(row[13]) : 0,
+    hintGreenUsed: Number.isFinite(Number(row[14])) ? Number(row[14]) : 0,
+    securityRetryErrors: Number.isFinite(Number(row[15])) ? Number(row[15]) : 0,
+    securityPhonePrefix: row[16] ?? "",
+    securityMiddle4: row[17] ?? "",
+    securityAccount2: row[18] ?? "",
+    attemptGuesses: row[19] ?? "",
+  }));
 }
