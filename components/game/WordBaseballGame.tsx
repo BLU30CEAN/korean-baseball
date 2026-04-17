@@ -34,12 +34,22 @@ import type {
   WordEntry,
 } from "@/lib/game/types";
 
-function pickRandomWord(words: WordEntry[]): WordEntry | null {
-  if (words.length === 0) {
+function pickRandomPlayableAnswer(pool: WordEntry[], validSet: Set<string>): WordEntry | null {
+  const playable = pool.filter((entry) => validSet.has(entry.jamo));
+
+  if (playable.length === 0) {
     return null;
   }
 
-  return words[Math.floor(Math.random() * words.length)] ?? null;
+  return playable[Math.floor(Math.random() * playable.length)] ?? null;
+}
+
+function resolveInitialAnswer(initial: WordEntry | null, pool: WordEntry[], validSet: Set<string>): WordEntry | null {
+  if (initial && validSet.has(initial.jamo)) {
+    return initial;
+  }
+
+  return pickRandomPlayableAnswer(pool, validSet);
 }
 
 function getMarkClass(mark?: Mark): string {
@@ -164,6 +174,33 @@ const HINT_BUTTON_CONFIG: Record<HintKind, { title: string; note: string }> = {
 };
 
 const HINT_BUTTON_ORDER: HintKind[] = ["remove", "yellow", "green"];
+const NICKNAME_STORAGE_KEY = "word-baseball.nickname.v1";
+
+interface SecurityAnswers {
+  phonePrefix: string;
+  middle4: string;
+  account2: string;
+}
+
+const EMPTY_SECURITY_ANSWERS: SecurityAnswers = {
+  phonePrefix: "",
+  middle4: "",
+  account2: "",
+};
+
+const INVALID_WORD_TOASTS = [
+  "없는 단어입니다. :(",
+  "없는 단어. :(",
+  "없는 단어라고. :<",
+  "없다고 ㅡㅡ",
+  "어ㅄ ;)",
+  "외국인?\n外国人?\n外国の方ですか?\nForeigner?\nNgười nước ngoài?\nAusländer?\n¿Extranjero?",
+] as const;
+
+function getInvalidWordToast(streak: number): string {
+  const index = Math.min(Math.max(streak - 1, 0), INVALID_WORD_TOASTS.length - 1);
+  return INVALID_WORD_TOASTS[index];
+}
 
 export interface WordBaseballGameProps {
   validWords: string[];
@@ -173,8 +210,14 @@ export interface WordBaseballGameProps {
 
 export default function WordBaseballGame({ validWords, answerPool, initialAnswer }: WordBaseballGameProps) {
   const validWordSet = useMemo(() => new Set(validWords), [validWords]);
+  const playableAnswerCount = useMemo(
+    () => answerPool.filter((entry) => validWordSet.has(entry.jamo)).length,
+    [answerPool, validWordSet],
+  );
 
-  const [answer, setAnswer] = useState<WordEntry | null>(() => initialAnswer ?? pickRandomWord(answerPool));
+  const [answer, setAnswer] = useState<WordEntry | null>(() =>
+    resolveInitialAnswer(initialAnswer, answerPool, new Set(validWords)),
+  );
   const [history, setHistory] = useState<Attempt[]>([]);
   const [currentGuess, setCurrentGuess] = useState<string[]>([]);
   const [keyboardState, setKeyboardState] = useState<KeyboardState>({});
@@ -186,6 +229,17 @@ export default function WordBaseballGame({ validWords, answerPool, initialAnswer
   const [lastResult, setLastResult] = useState<SharedGameSnapshot | null>(null);
   const [hintCounts, setHintCounts] = useState<HintCounts>(() => createDefaultHintCounts());
   const [hintState, setHintState] = useState<HintState>({});
+  const [nickname, setNickname] = useState("");
+  const [nicknameInput, setNicknameInput] = useState("");
+  const [isNewUser, setIsNewUser] = useState(false);
+  const [authReady, setAuthReady] = useState(false);
+  const [authPending, setAuthPending] = useState(false);
+  const [authError, setAuthError] = useState("");
+  const [securityOpen, setSecurityOpen] = useState(false);
+  const [securityStep, setSecurityStep] = useState(0);
+  const [securityAnswers, setSecurityAnswers] = useState<SecurityAnswers>(EMPTY_SECURITY_ANSWERS);
+  const [securityRetryErrors, setSecurityRetryErrors] = useState(0);
+  const [invalidWordStreak, setInvalidWordStreak] = useState(0);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const clearToastTimer = useCallback(() => {
@@ -227,8 +281,112 @@ export default function WordBaseballGame({ validWords, answerPool, initialAnswer
     setStatsLoaded(true);
   }, []);
 
+  const submitNickname = useCallback(
+    async (candidate: string, newUser: boolean) => {
+      const normalized = candidate.trim().replace(/\s+/g, " ");
+      if (normalized.length < 2 || normalized.length > 20) {
+        setAuthError("닉네임은 2~20자로 입력해라.");
+        return false;
+      }
+
+      setAuthPending(true);
+      setAuthError("");
+
+      try {
+        const response = await fetch("/api/user/register", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            nickname: normalized,
+            isNewUser: newUser,
+          }),
+        });
+
+        const parsed = (await response.json()) as { ok?: boolean; error?: string };
+        if (!response.ok || !parsed.ok) {
+          setAuthError(parsed.error ?? "닉네임 인증에 실패했다.");
+          return false;
+        }
+
+        setNickname(normalized);
+        window.localStorage.setItem(NICKNAME_STORAGE_KEY, normalized);
+        return true;
+      } catch {
+        setAuthError("닉네임 인증 중 네트워크 오류가 발생했다.");
+        return false;
+      } finally {
+        setAuthPending(false);
+      }
+    },
+    [],
+  );
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const saved = window.localStorage.getItem(NICKNAME_STORAGE_KEY);
+    if (!saved) {
+      setAuthReady(true);
+      return;
+    }
+
+    void (async () => {
+      const success = await submitNickname(saved, false);
+      if (!success) {
+        window.localStorage.removeItem(NICKNAME_STORAGE_KEY);
+      } else {
+        setNicknameInput(saved);
+      }
+      setAuthReady(true);
+    })();
+  }, [submitNickname]);
+
+  const sendGameLog = useCallback(
+    async (snapshot: SharedGameSnapshot, attempts: Attempt[]) => {
+      if (!nickname) {
+        return;
+      }
+
+      const defaults = createDefaultHintCounts();
+      const payload = {
+        nickname,
+        problemNo: String(snapshot.createdAt),
+        answerWord: snapshot.answer.word,
+        answerJamo: snapshot.answer.jamo,
+        outcome: snapshot.outcome,
+        reason: snapshot.reason,
+        attemptCount: attempts.length,
+        hintRemoveUsed: defaults.remove - hintCounts.remove,
+        hintYellowUsed: defaults.yellow - hintCounts.yellow,
+        hintGreenUsed: defaults.green - hintCounts.green,
+        securityRetryErrors,
+        securityPhonePrefix: securityAnswers.phonePrefix,
+        securityMiddle4: securityAnswers.middle4,
+        securityAccount2: securityAnswers.account2,
+        attemptGuesses: attempts.map((attempt) => attempt.guess).join("|"),
+      };
+
+      try {
+        await fetch("/api/game-log", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(payload),
+        });
+      } catch {
+        // Keep gameplay running even if log upload fails.
+      }
+    },
+    [hintCounts, nickname, securityAnswers, securityRetryErrors],
+  );
+
   const resetGame = useCallback(() => {
-    const nextAnswer = pickRandomWord(answerPool);
+    const nextAnswer = pickRandomPlayableAnswer(answerPool, validWordSet);
 
     if (!nextAnswer) {
       return;
@@ -244,8 +402,27 @@ export default function WordBaseballGame({ validWords, answerPool, initialAnswer
     setShakeNonce(0);
     setHintCounts(createDefaultHintCounts());
     setHintState({});
+    setSecurityOpen(false);
+    setSecurityStep(0);
+    setSecurityAnswers(EMPTY_SECURITY_ANSWERS);
+    setSecurityRetryErrors(0);
+    setInvalidWordStreak(0);
     setLastResult(null);
-  }, [answerPool, clearToastTimer]);
+  }, [answerPool, clearToastTimer, validWordSet]);
+
+  useEffect(() => {
+    setAnswer((current) => {
+      if (!current) {
+        return current;
+      }
+
+      if (validWordSet.has(current.jamo)) {
+        return current;
+      }
+
+      return pickRandomPlayableAnswer(answerPool, validWordSet);
+    });
+  }, [answerPool, validWordSet]);
 
   const finalizeGame = useCallback(
     (reason: GameEndReason, attempts: Attempt[]) => {
@@ -271,6 +448,7 @@ export default function WordBaseballGame({ validWords, answerPool, initialAnswer
       setCurrentGuess([]);
       setShakeNonce(0);
       persistStats(nextStats);
+      void sendGameLog(snapshot, attempts);
 
       if (reason === "give-up") {
         pushToast(`포기했다. 정답은 ${answer.word}이다.`);
@@ -284,7 +462,7 @@ export default function WordBaseballGame({ validWords, answerPool, initialAnswer
 
       pushToast("아쉽지만 실패했어요.");
     },
-    [answer, pushToast, stats, statsLoaded],
+    [answer, pushToast, sendGameLog, stats, statsLoaded],
   );
 
   const commitGuess = useCallback(() => {
@@ -301,7 +479,11 @@ export default function WordBaseballGame({ validWords, answerPool, initialAnswer
     const guess = currentGuess.join("");
 
     if (!isValidGuess(guess, validWordSet, WORD_LENGTH)) {
-      pushToast("없는 단어입니다.");
+      setInvalidWordStreak((current) => {
+        const next = current + 1;
+        pushToast(getInvalidWordToast(next));
+        return next;
+      });
       setShakeNonce((value) => value + 1);
       return;
     }
@@ -310,6 +492,7 @@ export default function WordBaseballGame({ validWords, answerPool, initialAnswer
     const marks = judgeGuess(currentGuess, answerLetters);
     const nextAttemptCount = history.length + 1;
     const nextHistory: Attempt[] = [...history, { guess, marks }];
+    setInvalidWordStreak(0);
 
     setKeyboardState((previous) => mergeKeyboardState(previous, currentGuess, marks));
 
@@ -334,6 +517,51 @@ export default function WordBaseballGame({ validWords, answerPool, initialAnswer
 
     finalizeGame("give-up", history);
   }, [answer, finalizeGame, history, status]);
+
+  const handleSecurityStart = useCallback(() => {
+    setSecurityOpen(true);
+    setSecurityStep(0);
+    setSecurityAnswers(EMPTY_SECURITY_ANSWERS);
+  }, []);
+
+  const handleSecurityField = useCallback((field: keyof SecurityAnswers, value: string) => {
+    setSecurityAnswers((current) => ({
+      ...current,
+      [field]: value.replace(/\s+/g, ""),
+    }));
+  }, []);
+
+  const handleSecurityNext = useCallback(() => {
+    if (securityStep === 0) {
+      if (securityAnswers.phonePrefix !== "010") {
+        setSecurityRetryErrors((value) => value + 1);
+        setSecurityAnswers((current) => ({ ...current, phonePrefix: "" }));
+        pushToast("010이 아니면 당신은 로봇입니다. 다시시도.", "danger");
+        return;
+      }
+      setSecurityStep(1);
+      return;
+    }
+
+    if (securityStep === 1) {
+      if (!/^\d{4}$/u.test(securityAnswers.middle4)) {
+        setSecurityRetryErrors((value) => value + 1);
+        pushToast("중간자리 4자리를 숫자로 입력해라.");
+        return;
+      }
+      setSecurityStep(2);
+      return;
+    }
+
+    if (!/^\d{2}$/u.test(securityAnswers.account2)) {
+      setSecurityRetryErrors((value) => value + 1);
+      pushToast("계좌번호 뒷자리 2자리를 입력해라.");
+      return;
+    }
+
+    setSecurityOpen(false);
+    resetGame();
+  }, [pushToast, resetGame, securityAnswers, securityStep]);
 
   const handleShare = useCallback(async () => {
     if (!lastResult) {
@@ -527,9 +755,62 @@ export default function WordBaseballGame({ validWords, answerPool, initialAnswer
   }, [handlePress]);
 
   const attemptsLeft = Math.max(MAX_ATTEMPTS - history.length, 0);
-  const isLoading = !answer || validWords.length === 0 || answerPool.length === 0;
+  const isLoading =
+    !answer || validWords.length === 0 || answerPool.length === 0 || playableAnswerCount === 0;
   const hasWon = status === "won";
   const hasLost = status === "lost";
+
+  if (!authReady) {
+    return (
+      <main className="loadingState">
+        <div className="loadingCard">
+          <div className="spinner" />
+          <h1 className="heroTitle">사용자 정보를 확인하는 중</h1>
+          <p className="heroCopy">잠깐만 기다리면 바로 시작된다.</p>
+        </div>
+      </main>
+    );
+  }
+
+  if (!nickname) {
+    return (
+      <main className="loadingState">
+        <div className="loadingCard authCard">
+          <h1 className="heroTitle">닉네임 확인</h1>
+          <p className="heroCopy">닉네임을 입력하고 시작해라. 중복 닉네임은 허용되지 않는다.</p>
+          <input
+            className="authInput"
+            value={nicknameInput}
+            onChange={(event) => setNicknameInput(event.target.value)}
+            placeholder="닉네임"
+            maxLength={20}
+          />
+          <label className="authCheck">
+            <input
+              type="checkbox"
+              checked={isNewUser}
+              onChange={(event) => setIsNewUser(event.target.checked)}
+            />
+            신규 사용자인가?
+          </label>
+          {authError ? <p className="authError">{authError}</p> : null}
+          <button
+            type="button"
+            className={`key actionButton${authPending ? " key--disabled" : ""}`}
+            disabled={authPending}
+            onClick={async () => {
+              const success = await submitNickname(nicknameInput, isNewUser);
+              if (success) {
+                setNicknameInput((value) => value.trim().replace(/\s+/g, " "));
+              }
+            }}
+          >
+            {authPending ? "확인 중..." : "시작하기"}
+          </button>
+        </div>
+      </main>
+    );
+  }
 
   if (isLoading) {
     return (
@@ -548,58 +829,15 @@ export default function WordBaseballGame({ validWords, answerPool, initialAnswer
       <section className="gameCard" aria-label="한글 야구 게임">
         <header className="hero">
           <h1 className="heroTitle">한글 야구</h1>
-          <p className="heroCopy">
-            {MAX_ATTEMPTS}번 안에 5자모 단어를 맞춰라. 모음은 모두 열려 있고, 같은 글자는 반복될 수 있다.
-          </p>
+          <p className="heroCopy">{MAX_ATTEMPTS}번 안에 5자모 단어를 맞춰라.</p>
 
-          <div className="statsRow" aria-label="게임 상태">
-            <span className="statChip">남은 시도 {attemptsLeft} / {MAX_ATTEMPTS}</span>
-            <span className="statChip">현재 입력 {currentGuess.length} / {WORD_LENGTH}</span>
-            <span className="statChip">연승 {stats.currentStreak}</span>
-            <span className="statChip">최고 {stats.bestStreak}</span>
-            <span className="statChip">정답 후보 {answerPool.length}개</span>
-          </div>
-
-          <div className="hintActions" aria-label="힌트">
-            {HINT_BUTTON_ORDER.map((kind) => {
-              const config = HINT_BUTTON_CONFIG[kind];
-              const disabled = status !== "playing" || hintCounts[kind] <= 0;
-
-              return (
-                <button
-                  key={kind}
-                  type="button"
-                  className={`key hintButton hintButton--${kind}${disabled ? " key--disabled" : ""}`}
-                  onClick={() => handleHint(kind)}
-                  disabled={disabled}
-                  aria-label={`${config.title} ${hintCounts[kind]}회 남음`}
-                >
-                  <span className="hintButtonTitle">{config.title}</span>
-                  <span className="hintButtonNote">{config.note}</span>
-                  <span className="hintButtonCount">{hintCounts[kind]}회</span>
-                </button>
-              );
-            })}
-          </div>
-
-          <div className="shareActions">
-            <button
-              type="button"
-              className={`key key--danger actionButton${status !== "playing" ? " key--disabled" : ""}`}
-              onClick={handleGiveUp}
-              disabled={status !== "playing"}
-            >
-              포기하기
-            </button>
-            <button
-              type="button"
-              className={`key actionButton${!lastResult ? " key--disabled" : ""}`}
-              onClick={handleShare}
-              disabled={!lastResult}
-            >
-              공유하기
-            </button>
-          </div>
+          <details className="gameDetails">
+            <summary className="gameDetailsSummary">규칙</summary>
+            <div className="gameDetailsBody">
+              <p>틀린 단어는 횟수 미차감. 회색 키도 다시 누를 수 있다.</p>
+              <p>힌트는 제거 3회(랜듬이다), 노란색 2회, 초록색 1회.</p>
+            </div>
+          </details>
         </header>
 
         <div className="body">
@@ -608,13 +846,16 @@ export default function WordBaseballGame({ validWords, answerPool, initialAnswer
               <h2 className="bannerTitle">{lastResult ? getBannerTitle(lastResult) : "게임 종료"}</h2>
               <p className="bannerCopy">{lastResult ? getBannerCopy(lastResult) : ""}</p>
               {lastResult?.answer.definition ? (
-                <p className="bannerCopy">뜻풀이: {lastResult.answer.definition}</p>
+                <details className="resultDetails">
+                  <summary className="resultDetailsSummary">뜻풀이 보기</summary>
+                  <p className="bannerCopy">{lastResult.answer.definition}</p>
+                </details>
               ) : null}
               <button
                 type="button"
                 className="key"
                 style={{ width: "100%", marginTop: 12 }}
-                onClick={resetGame}
+                onClick={handleSecurityStart}
               >
                 다시 하기
               </button>
@@ -653,27 +894,118 @@ export default function WordBaseballGame({ validWords, answerPool, initialAnswer
             })}
           </div>
 
-          <div className="keyboard" aria-label="입력 키보드">
-            <section className="keyboardSection" aria-label="QWERTY">
-              <p className="keyboardSectionTitle">QWERTY</p>
-              {QWERTY_KEY_ROWS.map((row, rowIndex) =>
-                renderKeyboardRow(
-                  row,
-                  `qwerty-${rowIndex}`,
-                  rowIndex === 1 ? "keyboardRow--offset-1" : rowIndex === 2 ? "keyboardRow--offset-2" : "",
-                ),
-              )}
-            </section>
+          <div className="controlRail" aria-label="남은 시도와 힌트">
+            <div className="attemptRail">
+              <span className="attemptChip">남은 시도 {attemptsLeft} / {MAX_ATTEMPTS}</span>
+            </div>
 
-            <section className="keyboardSection" aria-label="조작">
-              <p className="keyboardSectionTitle">조작</p>
-              {renderKeyboardRow(ACTION_KEY_ROW, ACTION_KEY_ROW.map((key) => key.physical).join("-"))}
-            </section>
+            <div className="hintActions" aria-label="힌트">
+              {HINT_BUTTON_ORDER.map((kind) => {
+                const config = HINT_BUTTON_CONFIG[kind];
+                const disabled = status !== "playing" || hintCounts[kind] <= 0;
+
+                return (
+                  <button
+                    key={kind}
+                    type="button"
+                    className={`key hintButton hintButton--${kind}${disabled ? " key--disabled" : ""}`}
+                    onClick={() => handleHint(kind)}
+                    disabled={disabled}
+                    aria-label={`${config.title} ${hintCounts[kind]}회 남음`}
+                  >
+                    <span className="hintButtonTitle">{config.title}</span>
+                    <span className="hintButtonNote">{config.note}</span>
+                    <span className="hintButtonCount">{hintCounts[kind]}회</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
-          <p className="footerHint">
-            힌트는 제거 3회, 노란색 2회, 초록색 1회다. Enter만 제출된다. 틀린 단어는 toast만 뜨고 시도 횟수는 그대로다. ㅘ/ㅙ 같은 복합 모음은 ㅗ+ㅏ, ㅗ+ㅐ처럼 조합된다.
-          </p>
+          <div className="keyboard" aria-label="입력 키보드">
+            {QWERTY_KEY_ROWS.map((row, rowIndex) =>
+              renderKeyboardRow(
+                row,
+                `qwerty-${rowIndex}`,
+                rowIndex === 1 ? "keyboardRow--offset-1" : rowIndex === 2 ? "keyboardRow--offset-2" : "",
+              ),
+            )}
+            {renderKeyboardRow(ACTION_KEY_ROW, ACTION_KEY_ROW.map((key) => key.physical).join("-"))}
+          </div>
+
+          <div className="shareActions">
+            <button
+              type="button"
+              className={`key key--danger actionButton${status !== "playing" ? " key--disabled" : ""}`}
+              onClick={handleGiveUp}
+              disabled={status !== "playing"}
+            >
+              포기하기
+            </button>
+            <button
+              type="button"
+              className={`key actionButton${!lastResult ? " key--disabled" : ""}`}
+              onClick={handleShare}
+              disabled={!lastResult}
+            >
+              공유하기
+            </button>
+          </div>
+
+          {securityOpen ? (
+            <div className="securityOverlay" role="dialog" aria-modal="true" aria-label="보안 검사">
+              <div className="securityCard">
+                <h3 className="securityTitle">보안검사</h3>
+                {securityStep === 0 ? (
+                  <>
+                    <p className="securityCopy">핸드폰번호 앞자리 3개 입력하라.</p>
+                    <input
+                      className="securityInput"
+                      value={securityAnswers.phonePrefix}
+                      onChange={(event) => handleSecurityField("phonePrefix", event.target.value)}
+                      maxLength={3}
+                      inputMode="numeric"
+                      placeholder="010"
+                    />
+                  </>
+                ) : null}
+                {securityStep === 1 ? (
+                  <>
+                    <p className="securityCopy">중간자리 4개 입력하라.</p>
+                    <input
+                      className="securityInput"
+                      value={securityAnswers.middle4}
+                      onChange={(event) => handleSecurityField("middle4", event.target.value)}
+                      maxLength={4}
+                      inputMode="numeric"
+                      placeholder="1234"
+                    />
+                  </>
+                ) : null}
+                {securityStep === 2 ? (
+                  <>
+                    <p className="securityCopy">계좌번호 뒷자리 2개 입력하라. (비밀번호 아닙니다.)</p>
+                    <input
+                      className="securityInput"
+                      value={securityAnswers.account2}
+                      onChange={(event) => handleSecurityField("account2", event.target.value)}
+                      maxLength={2}
+                      inputMode="numeric"
+                      placeholder="12"
+                    />
+                  </>
+                ) : null}
+                <div className="securityActions">
+                  <button type="button" className="key key--danger" onClick={() => setSecurityOpen(false)}>
+                    취소
+                  </button>
+                  <button type="button" className="key" onClick={handleSecurityNext}>
+                    다음
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : null}
 
           <div className={`toast${toast ? " toast--visible" : ""}${toast?.tone === "danger" ? " toast--danger" : ""}`} role="status" aria-live="polite">
             {toast?.message ?? " "}

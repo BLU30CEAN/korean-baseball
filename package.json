@@ -12,6 +12,7 @@
     "wordbank": "tsx scripts/build-word-bank.ts"
   },
   "dependencies": {
+    "googleapis": "^171.4.0",
     "next": "16.2.3",
     "react": "19.2.5",
     "react-dom": "19.2.5"

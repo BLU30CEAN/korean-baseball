@@ -7,6 +7,7 @@
   --text: #f4f6fb;
   --muted: #9aa6bb;
   --strike: #5dbe69;
+  --strike-dup: #9fe6a8;
   --ball: #d4b24d;
   --out: #586273;
   --danger: #ff6a6a;
@@ -68,6 +69,9 @@ button:disabled {
 
 .gameCard {
   width: min(100%, 460px);
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100svh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 32px);
   background: rgba(10, 13, 20, 0.66);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 28px;
@@ -117,9 +121,64 @@ button:disabled {
   line-height: 1;
 }
 
+.gameDetails {
+  margin-top: 12px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  overflow: clip;
+}
+
+.gameDetailsSummary {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 11px 12px;
+  color: var(--text);
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  user-select: none;
+}
+
+.gameDetailsSummary::-webkit-details-marker {
+  display: none;
+}
+
+.gameDetailsSummary::after {
+  content: "⌄";
+  color: var(--muted);
+  transition: transform 0.14s ease;
+}
+
+.gameDetails[open] .gameDetailsSummary::after {
+  transform: rotate(180deg);
+}
+
+.gameDetailsBody {
+  padding: 0 12px 12px;
+  display: grid;
+  gap: 8px;
+}
+
+.gameDetailsBody p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
 .body {
   position: relative;
+  flex: 1;
+  min-height: 0;
   padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  overflow: hidden;
 }
 
 .banner {
@@ -141,6 +200,65 @@ button:disabled {
   color: var(--muted);
   font-size: 0.9rem;
   line-height: 1.45;
+}
+
+.resultDetails {
+  margin-top: 10px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  overflow: clip;
+}
+
+.resultDetailsSummary {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  color: var(--text);
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  user-select: none;
+}
+
+.resultDetailsSummary::-webkit-details-marker {
+  display: none;
+}
+
+.resultDetailsSummary::after {
+  content: "⌄";
+  color: var(--muted);
+  transition: transform 0.14s ease;
+}
+
+.resultDetails[open] .resultDetailsSummary::after {
+  transform: rotate(180deg);
+}
+
+.controlRail {
+  display: grid;
+  gap: 8px;
+}
+
+.attemptRail {
+  display: flex;
+  align-items: center;
+}
+
+.attemptChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text);
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1;
 }
 
 .board {
@@ -184,6 +302,12 @@ button:disabled {
   background: var(--strike);
   border-color: rgba(255, 255, 255, 0.12);
   color: #f7fff8;
+}
+
+.tile--strikeDup {
+  background: var(--strike-dup);
+  border-color: rgba(255, 255, 255, 0.14);
+  color: #0f2a14;
 }
 
 .tile--ball {
@@ -265,6 +389,11 @@ button:disabled {
 .key--strike {
   background: var(--strike);
   color: #f7fff8;
+}
+
+.key--strikeDup {
+  background: var(--strike-dup);
+  color: #0f2a14;
 }
 
 .key--ball {
@@ -351,13 +480,80 @@ button:disabled {
 .shareActions {
   display: grid;
   gap: 10px;
-  margin-top: 12px;
+  margin-top: 18px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .actionButton {
   width: 100%;
   text-decoration: none;
   text-align: center;
+}
+
+.authCard {
+  display: grid;
+  gap: 10px;
+}
+
+.authInput,
+.securityInput {
+  width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  background: rgba(18, 21, 29, 0.8);
+  color: var(--text);
+  padding: 10px 12px;
+}
+
+.authCheck {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.authError {
+  margin: 0;
+  color: #ffd6d6;
+  font-size: 0.82rem;
+}
+
+.securityOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(6, 8, 12, 0.74);
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  z-index: 40;
+}
+
+.securityCard {
+  width: min(100%, 320px);
+  border-radius: 16px;
+  background: rgba(18, 21, 29, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 14px;
+  display: grid;
+  gap: 10px;
+}
+
+.securityTitle {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.securityCopy {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.securityActions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
 }
 
 .toast {
@@ -449,52 +645,216 @@ button:disabled {
 }
 
 @media (max-width: 420px) {
-  .gameCard {
-    border-radius: 24px;
+  .pageShell {
+    align-items: stretch;
+    padding:
+      calc(env(safe-area-inset-top) + 8px)
+      calc(env(safe-area-inset-right) + 8px)
+      calc(env(safe-area-inset-bottom) + 8px)
+      calc(env(safe-area-inset-left) + 8px);
   }
 
-  .hero,
+  .gameCard {
+    width: 100%;
+    border-radius: 20px;
+    height: calc(100svh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 16px);
+    max-height: none;
+  }
+
+  .hero {
+    padding: 10px 10px 8px;
+  }
+
+  .heroTitle {
+    font-size: 1.22rem;
+  }
+
+  .heroCopy {
+    margin-top: 4px;
+    font-size: 0.72rem;
+    line-height: 1.28;
+  }
+
+  .gameDetails {
+    margin-top: 6px;
+  }
+
+  .gameDetailsSummary {
+    padding: 7px 9px;
+    font-size: 0.68rem;
+  }
+
+  .gameDetailsBody {
+    padding: 0 9px 8px;
+    gap: 4px;
+  }
+
+  .gameDetailsBody p {
+    font-size: 0.68rem;
+    line-height: 1.3;
+  }
+
   .body {
-    padding-left: 14px;
-    padding-right: 14px;
+    padding: 10px;
+    gap: 8px;
+  }
+
+  .banner {
+    margin-bottom: 8px;
+    padding: 8px 10px;
+    border-radius: 12px;
+  }
+
+  .bannerTitle {
+    font-size: 0.84rem;
+  }
+
+  .bannerCopy {
+    font-size: 0.74rem;
+  }
+
+  .resultDetails {
+    margin-top: 6px;
+  }
+
+  .resultDetailsSummary {
+    padding: 7px 9px;
+    font-size: 0.68rem;
+  }
+
+  .board {
+    width: min(100%, 250px);
+    margin-inline: auto;
+    gap: 6px;
   }
 
   .boardRow {
-    gap: 8px;
+    gap: 3px;
   }
 
-  .keyboardRow {
-    gap: 5px;
+  .controlRail {
+    gap: 6px;
   }
 
-  .hintActions {
-    gap: 8px;
-  }
-
-  .hintButton {
-    min-height: 64px;
-    padding: 8px 6px;
-  }
-
-  .hintButtonTitle {
-    font-size: 0.75rem;
-  }
-
-  .hintButtonNote {
-    font-size: 0.62rem;
-  }
-
-  .hintButtonCount {
+  .attemptChip {
+    padding: 6px 8px;
     font-size: 0.66rem;
   }
 
+  .keyboardRow {
+    gap: 3px;
+  }
+
+  .keyboardRow--offset-1 {
+    padding-inline-start: 6px;
+    padding-inline-end: 6px;
+  }
+
+  .keyboardRow--offset-2 {
+    padding-inline-start: 10px;
+    padding-inline-end: 10px;
+  }
+
+  .hintActions {
+    gap: 5px;
+  }
+
+  .hintButton {
+    min-height: 46px;
+    padding: 5px 4px;
+  }
+
+  .hintButtonTitle {
+    font-size: 0.62rem;
+  }
+
+  .hintButtonNote {
+    display: none;
+  }
+
+  .hintButtonCount {
+    font-size: 0.58rem;
+  }
+
+  .shareActions {
+    gap: 5px;
+    margin-top: 12px;
+  }
+
+  .actionButton {
+    min-height: 36px;
+    font-size: 0.68rem;
+  }
+
+  .keyboard {
+    gap: 8px;
+    margin-top: 6px;
+  }
+
   .tile {
-    border-radius: 14px;
-    font-size: 1.35rem;
+    border-radius: 10px;
+    font-size: 0.96rem;
   }
 
   .key {
-    min-height: 44px;
-    border-radius: 13px;
+    min-height: 34px;
+    border-radius: 10px;
+    padding: 5px 3px;
+    font-size: 0.68rem;
+  }
+
+  .key--wide {
+    font-size: 0.62rem;
+  }
+
+  .toast {
+    bottom: 6px;
+    margin-top: 6px;
+    padding: 8px 10px;
+    font-size: 0.72rem;
+  }
+
+  .authInput,
+  .securityInput {
+    border-radius: 10px;
+    padding: 8px 10px;
+    font-size: 0.76rem;
+  }
+
+  .securityCard {
+    border-radius: 14px;
+    padding: 12px;
+  }
+
+  .securityTitle {
+    font-size: 0.9rem;
+  }
+
+  .securityCopy {
+    font-size: 0.76rem;
+  }
+}
+
+@media (max-width: 360px) {
+  .board {
+    width: min(100%, 232px);
+  }
+
+  .tile {
+    font-size: 0.9rem;
+  }
+
+  .key {
+    min-height: 32px;
+    font-size: 0.64rem;
+  }
+
+  .hintButton {
+    min-height: 42px;
+  }
+
+  .gameDetailsSummary,
+  .resultDetailsSummary {
+    font-size: 0.64rem;
   }
 }

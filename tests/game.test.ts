@@ -20,13 +20,28 @@ test("hangul normalization", () => {
 
 test("guess judging", () => {
   const marks = judgeGuess(["ㅂ", "ㅅ", "ㅂ", "ㅅ", "ㅂ"], ["ㅂ", "ㅂ", "ㅅ", "ㅅ", "ㅇ"]);
-  assert.deepEqual(marks, ["strike", "ball", "ball", "strike", "out"]);
+  assert.deepEqual(marks, ["strikeDup", "ball", "ball", "strikeDup", "out"]);
+});
+
+test("guess judging duplicate answer letters use strikeDup", () => {
+  const marks = judgeGuess(["ㄱ", "ㄱ", "ㅏ", "ㅏ", "ㅂ"], ["ㄱ", "ㄱ", "ㅏ", "ㅏ", "ㅂ"]);
+  assert.deepEqual(marks, ["strikeDup", "strikeDup", "strikeDup", "strikeDup", "strike"]);
+});
+
+test("guess judging 숫자 full match uses strikeDup for repeated jamo", () => {
+  const jamo = "ㅅㅜㅅㅈㅏ".split("");
+  assert.deepEqual(judgeGuess(jamo, jamo), ["strikeDup", "strike", "strikeDup", "strike", "strike"]);
 });
 
 test("keyboard state", () => {
   const next = mergeKeyboardState({}, ["ㅂ", "ㅅ", "ㅂ"], ["out", "ball", "strike"]);
   assert.equal(next["ㅂ"], "strike");
   assert.equal(next["ㅅ"], "ball");
+});
+
+test("keyboard state keeps strike when mixing strikeDup", () => {
+  const next = mergeKeyboardState({ ㄱ: "strikeDup" }, ["ㄱ"], ["strike"]);
+  assert.equal(next["ㄱ"], "strike");
 });
 
 test("guess validation", () => {

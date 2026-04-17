@@ -3,7 +3,8 @@ import type { KeyboardState, Mark } from "@/lib/game/types";
 const MARK_PRIORITY: Record<Mark, number> = {
   out: 0,
   ball: 1,
-  strike: 2,
+  strikeDup: 2,
+  strike: 3,
 };
 
 export function judgeGuess(guess: string[], answer: string[]): Mark[] {
@@ -29,6 +30,22 @@ export function judgeGuess(guess: string[], answer: string[]): Mark[] {
     if (current > 0) {
       marks[index] = "ball";
       remaining.set(guess[index], current - 1);
+    }
+  }
+
+  const answerCounts = new Map<string, number>();
+  for (const letter of answer) {
+    answerCounts.set(letter, (answerCounts.get(letter) ?? 0) + 1);
+  }
+
+  for (let index = 0; index < marks.length; index += 1) {
+    if (marks[index] !== "strike") {
+      continue;
+    }
+
+    const letter = guess[index];
+    if ((answerCounts.get(letter) ?? 0) > 1) {
+      marks[index] = "strikeDup";
     }
   }
 

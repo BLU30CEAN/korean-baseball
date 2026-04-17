@@ -7,13 +7,16 @@ export const dynamic = "force-dynamic";
 
 const typedAnswerPool = answerPool as WordEntry[];
 const typedValidWords = validWords as string[];
+const typedValidWordSet = new Set(typedValidWords);
 
-function pickRandomWord(words: WordEntry[]): WordEntry | null {
-  if (words.length === 0) {
+function pickRandomPlayableAnswer(pool: WordEntry[], validSet: Set<string>): WordEntry | null {
+  const playable = pool.filter((entry) => validSet.has(entry.jamo));
+
+  if (playable.length === 0) {
     return null;
   }
 
-  return words[Math.floor(Math.random() * words.length)] ?? null;
+  return playable[Math.floor(Math.random() * playable.length)] ?? null;
 }
 
 export default function Page() {
@@ -21,7 +24,7 @@ export default function Page() {
     <WordBaseballGame
       answerPool={typedAnswerPool}
       validWords={typedValidWords}
-      initialAnswer={pickRandomWord(typedAnswerPool)}
+      initialAnswer={pickRandomPlayableAnswer(typedAnswerPool, typedValidWordSet)}
     />
   );
 }

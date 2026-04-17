@@ -95,7 +95,7 @@ export function decodeShareSnapshot(encoded: string): SharedGameSnapshot | null 
         }
 
         const marks = attempt.marks.map((mark) =>
-          mark === "strike" || mark === "ball" || mark === "out" ? mark : "out",
+          mark === "strike" || mark === "strikeDup" || mark === "ball" || mark === "out" ? mark : "out",
         ) as Mark[];
 
         return {
@@ -131,6 +131,7 @@ export function decodeShareSnapshot(encoded: string): SharedGameSnapshot | null 
 
 function markToEmoji(mark: Attempt["marks"][number]): string {
   if (mark === "strike") return "🟩";
+  if (mark === "strikeDup") return "🟢";
   if (mark === "ball") return "🟨";
   return "⬛";
 }

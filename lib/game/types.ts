@@ -1,4 +1,4 @@
-export type Mark = "strike" | "ball" | "out";
+export type Mark = "strike" | "strikeDup" | "ball" | "out";
 
 export type GameStatus = "playing" | "won" | "lost";
 

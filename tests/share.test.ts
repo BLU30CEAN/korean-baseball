@@ -34,6 +34,23 @@ test("share snapshot roundtrips", () => {
   assert.deepEqual(decoded, snapshot);
 });
 
+test("share snapshot roundtrips with strikeDup marks", () => {
+  const extended: SharedGameSnapshot = {
+    ...snapshot,
+    attempts: [
+      {
+        guess: "ㅅㅜㅅㅈㅏ",
+        marks: ["strikeDup", "strike", "ball", "strikeDup", "out"],
+      },
+    ],
+  };
+
+  const encoded = encodeShareSnapshot(extended);
+  const decoded = decodeShareSnapshot(encoded);
+
+  assert.deepEqual(decoded, extended);
+});
+
 test("share text includes the result summary", () => {
   const text = buildShareText(snapshot);
 
@@ -41,4 +58,15 @@ test("share text includes the result summary", () => {
   assert.match(text, /성공/);
   assert.match(text, /연승 1/);
   assert.match(text, /정답: 숫자/);
+});
+
+test("share text maps strikeDup to emoji", () => {
+  const extended: SharedGameSnapshot = {
+    ...snapshot,
+    attempts: [{ guess: "ㅅㅜㅅㅈㅏ", marks: ["strikeDup", "strike", "ball", "out", "out"] }],
+  };
+
+  const text = buildShareText(extended);
+
+  assert.match(text, /🟢/);
 });
