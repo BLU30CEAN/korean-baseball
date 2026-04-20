@@ -253,21 +253,25 @@ export function composeHangulWord(word: string | string[]): string {
       return null;
     }
 
-    const vowelCandidates: Array<{ jung: string; nextIndex: number }> = [
-      { jung: jamo[vowelIndex], nextIndex: vowelIndex + 1 },
-    ];
+    const vowelCandidates: Array<{ jung: string; nextIndex: number }> = [];
+    const nextVowel = jamo[vowelIndex + 1];
 
-    if (vowelIndex + 1 < jamo.length && isVowelJamo(jamo[vowelIndex + 1])) {
-      const composedVowel = composeJungseong(
-        jamo[vowelIndex],
-        jamo[vowelIndex + 1],
-      );
-      if (composedVowel) {
-        vowelCandidates.push({
-          jung: composedVowel,
-          nextIndex: vowelIndex + 2,
-        });
+    if (nextVowel && isVowelJamo(nextVowel)) {
+      const composedVowel = composeJungseong(jamo[vowelIndex], nextVowel);
+      if (!composedVowel) {
+        memo.set(index, null);
+        return null;
       }
+
+      vowelCandidates.push({
+        jung: composedVowel,
+        nextIndex: vowelIndex + 2,
+      });
+    } else {
+      vowelCandidates.push({
+        jung: jamo[vowelIndex],
+        nextIndex: vowelIndex + 1,
+      });
     }
 
     for (const vowelCandidate of vowelCandidates) {
@@ -277,20 +281,27 @@ export function composeHangulWord(word: string | string[]): string {
 
       const next = jamo[vowelCandidate.nextIndex];
       if (next && isConsonantJamo(next)) {
-        finalCandidates.push({
-          jong: next,
-          nextIndex: vowelCandidate.nextIndex + 1,
-        });
-
         const nextNext = jamo[vowelCandidate.nextIndex + 1];
-        if (nextNext && isConsonantJamo(nextNext)) {
-          const composedFinal = composeJongseong(next, nextNext);
-          if (composedFinal) {
-            finalCandidates.push({
-              jong: composedFinal,
-              nextIndex: vowelCandidate.nextIndex + 2,
-            });
+        if (!nextNext || isConsonantJamo(nextNext)) {
+          const afterPair = jamo[vowelCandidate.nextIndex + 2];
+          if (
+            nextNext &&
+            isConsonantJamo(nextNext) &&
+            (!afterPair || isConsonantJamo(afterPair))
+          ) {
+            const composedFinal = composeJongseong(next, nextNext);
+            if (composedFinal) {
+              finalCandidates.unshift({
+                jong: composedFinal,
+                nextIndex: vowelCandidate.nextIndex + 2,
+              });
+            }
           }
+
+          finalCandidates.push({
+            jong: next,
+            nextIndex: vowelCandidate.nextIndex + 1,
+          });
         }
       }
 

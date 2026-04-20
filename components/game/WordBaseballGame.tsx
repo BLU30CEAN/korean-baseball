@@ -26,6 +26,7 @@ import {
   createDefaultGameStats,
   normalizeGameStats,
 } from "@/lib/game/stats";
+import { composeHangulWord } from "@/lib/game/hangul";
 import { judgeGuess, isValidGuess, mergeKeyboardState } from "@/lib/game/logic";
 import {
   validateWordRealtime,
@@ -602,6 +603,7 @@ export default function WordBaseballGame({
     }
 
     const guess = currentGuess.join("");
+    const composedSurface = composeHangulWord(guess);
 
     // First check local word bank
     if (!isValidGuess(guess, validWordSet, WORD_LENGTH)) {
@@ -624,7 +626,11 @@ export default function WordBaseballGame({
         pushToast(`단어 확인됨${cacheIndicator}`, "success");
       } catch (error) {
         // API failed, fall back to basic pattern check
-        if (guess.length === WORD_LENGTH && /^[가-힣]+$/u.test(guess)) {
+        if (
+          guess.length === WORD_LENGTH &&
+          composedSurface &&
+          /^[가-힣]+$/u.test(composedSurface)
+        ) {
           pushToast("네트워크 오류. 한글 단어로 진행합니다.", "success");
         } else {
           setInvalidWordStreak((current) => {

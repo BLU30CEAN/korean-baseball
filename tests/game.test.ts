@@ -1,6 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { countJamo, isPlayableWord, toJamoString } from "../lib/game/hangul";
+import {
+  composeHangulWord,
+  countJamo,
+  isPlayableWord,
+  toJamoString,
+} from "../lib/game/hangul";
 import { getHintCandidates, pickHintCandidate, createDefaultHintCounts, applyHintMark } from "../lib/game/hints";
 import { isValidGuess, judgeGuess, mergeKeyboardState } from "../lib/game/logic";
 import { MAX_ATTEMPTS, QWERTY_KEY_ROWS, applyJamoInput, isTypeableWord } from "../lib/game/keymap";
@@ -9,10 +14,13 @@ import type { KeyboardState } from "../lib/game/types";
 test("hangul normalization", () => {
   assert.equal(toJamoString("숫자"), "ㅅㅜㅅㅈㅏ");
   assert.equal(toJamoString("과자"), "ㄱㅗㅏㅈㅏ");
+  assert.equal(composeHangulWord("ㅅㅏㄱㅗㅏ"), "사과");
+  assert.equal(composeHangulWord("ㅅㅏㄱㅘ"), "사과");
   assert.equal(toJamoString("원귀"), "ㅇㅜㅓㄴㄱㅜㅣ");
   assert.equal(countJamo("과자"), 5);
   assert.equal(countJamo("원귀"), 7);
   assert.equal(isPlayableWord("숫자"), true);
+  assert.equal(isPlayableWord("사과"), true);
   assert.equal(isPlayableWord("과자"), true);
   assert.equal(isPlayableWord("원귀"), false);
   assert.equal(isPlayableWord("안녕"), false);
