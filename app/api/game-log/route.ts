@@ -16,6 +16,7 @@ interface GameLogBody {
   hintRemoveUsed?: number;
   hintYellowUsed?: number;
   hintGreenUsed?: number;
+  hintCoreUsed?: number;
   securityRetryErrors?: number;
   securityPhonePrefix?: string;
   securityMiddle4?: string;
@@ -53,6 +54,7 @@ export async function POST(request: Request) {
       hintRemoveUsed: Number.isFinite(body.hintRemoveUsed) ? Number(body.hintRemoveUsed) : 0,
       hintYellowUsed: Number.isFinite(body.hintYellowUsed) ? Number(body.hintYellowUsed) : 0,
       hintGreenUsed: Number.isFinite(body.hintGreenUsed) ? Number(body.hintGreenUsed) : 0,
+      hintCoreUsed: Number.isFinite(body.hintCoreUsed) ? Number(body.hintCoreUsed) : 0,
       securityRetryErrors: Number.isFinite(body.securityRetryErrors) ? Number(body.securityRetryErrors) : 0,
       securityPhonePrefix: String(body.securityPhonePrefix ?? ""),
       securityMiddle4: String(body.securityMiddle4 ?? ""),

@@ -110,6 +110,41 @@ const FALLBACK_BANK: WordBankEntry[] = [
     parts: ["noun"],
     definition: "물체의 모습을 비추어 보게 하는 평평하고 매끈한 표면의 물건.",
   },
+  {
+    word: "자몽",
+    jamo: "ㅈㅏㅁㅗㅇ",
+    pos: "noun",
+    parts: ["noun"],
+    definition: "귤과에 속하는 감귤류 과일.",
+  },
+  {
+    word: "숙주",
+    jamo: "ㅅㅜㄱㅈㅜ",
+    pos: "noun",
+    parts: ["noun"],
+    definition: "콩나물의 한 종류.",
+  },
+  {
+    word: "꽃밭",
+    jamo: "ㄲㅗㅊㅂㅏㅊ",
+    pos: "noun",
+    parts: ["noun"],
+    definition: "꽃을 기르는 밭.",
+  },
+  {
+    word: "바람",
+    jamo: "ㅂㅏㄹㅏㅁ",
+    pos: "noun",
+    parts: ["noun"],
+    definition: "공기가 움직이는 현상.",
+  },
+  {
+    word: "소금",
+    jamo: "ㅅㅗㄱㅡㅁ",
+    pos: "noun",
+    parts: ["noun"],
+    definition: "바닷물을 증발시켜 얻는 하얀 결정체.",
+  },
 ];
 
 function normalizePos(pos?: string): string | undefined {
@@ -261,7 +296,7 @@ async function fetchKrdictPrefixEntries(prefix: string): Promise<WordBankEntry[]
   url.searchParams.set("advanced", "y");
   url.searchParams.set("target", "1");
   url.searchParams.set("method", "start");
-  url.searchParams.set("num", "100");
+  url.searchParams.set("num", "200");
   url.searchParams.set("start", "1");
 
   const response = await fetch(url);

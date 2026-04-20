@@ -12,21 +12,44 @@ function getAppsScriptUrl(): string {
   return value;
 }
 
+function getAppsScriptTimeoutMs(): number {
+  const raw = process.env.APPS_SCRIPT_TIMEOUT_MS;
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return 8000;
+  }
+  return parsed;
+}
+
 export async function callAppsScript<T extends AppsScriptBaseResponse>(
   action: string,
   payload: Record<string, unknown>,
 ): Promise<T> {
-  const response = await fetch(getAppsScriptUrl(), {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      action,
-      ...payload,
-    }),
-    cache: "no-store",
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), getAppsScriptTimeoutMs());
+  let response: Response;
+
+  try {
+    response = await fetch(getAppsScriptUrl(), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        action,
+        ...payload,
+      }),
+      cache: "no-store",
+      signal: controller.signal,
+    });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw new Error("Apps Script 응답 시간 초과다. 잠시 뒤 다시 시도해라.");
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
 
   const raw = await response.text();
   let data: T;

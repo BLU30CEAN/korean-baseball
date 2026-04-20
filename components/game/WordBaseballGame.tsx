@@ -27,6 +27,10 @@ import {
   normalizeGameStats,
 } from "@/lib/game/stats";
 import { judgeGuess, isValidGuess, mergeKeyboardState } from "@/lib/game/logic";
+import {
+  validateWordRealtime,
+  type ValidationResult,
+} from "@/lib/game/word-validator";
 import type {
   Attempt,
   GameEndReason,
@@ -192,8 +196,16 @@ const HINT_BUTTON_CONFIG: Record<HintKind, { title: string; note: string }> = {
   },
 };
 
-const HINT_BUTTON_ORDER: HintKind[] = ["remove", "yellow", "green"];
+const HINT_BUTTON_ORDER: HintKind[] = ["remove"];
+const CORE_HINT_LIMIT = 1;
 const NICKNAME_STORAGE_KEY = "word-baseball.nickname.v1";
+const THEME_STORAGE_KEY = "word-baseball.theme.v1";
+const LOADING_HERO_COPY_INITIAL =
+  "단어 목록을 불러오고 있어. 잠깐만 기다리면 바로 시작된다.";
+const LOADING_HERO_COPY_SLOW = "사실 느립니다. 미안해오";
+const LOADING_HERO_COPY_SLOW_DELAY_MS = 3000;
+
+type ThemeMode = "dark" | "light";
 
 interface SecurityAnswers {
   phonePrefix: string;
@@ -201,11 +213,52 @@ interface SecurityAnswers {
   account2: string;
 }
 
+type SecurityField = keyof SecurityAnswers;
+
+const SECURITY_FIELD_KEYS: SecurityField[] = [
+  "phonePrefix",
+  "middle4",
+  "account2",
+];
+
+const SECURITY_PROMPTS: Record<
+  SecurityField,
+  { copy: string; placeholder: string; maxLength: number; submitLabel: string }
+> = {
+  phonePrefix: {
+    copy: "오늘 먹은 점심 가격 앞자리 3개 입력하라. (예: 010)",
+    placeholder: "010",
+    maxLength: 3,
+    submitLabel: "확인",
+  },
+  middle4: {
+    copy: "세상에서 제일 좋아하는 숫자 4개 입력하라.",
+    placeholder: "1234",
+    maxLength: 4,
+    submitLabel: "확인",
+  },
+  account2: {
+    copy: "어제 꾼 꿈 번호 뒤 2자리 입력하라.",
+    placeholder: "12",
+    maxLength: 2,
+    submitLabel: "확인",
+  },
+};
+
 const EMPTY_SECURITY_ANSWERS: SecurityAnswers = {
   phonePrefix: "",
   middle4: "",
   account2: "",
 };
+
+function pickRandomSecurityField(except?: SecurityField): SecurityField {
+  const candidates = except
+    ? SECURITY_FIELD_KEYS.filter((field) => field !== except)
+    : SECURITY_FIELD_KEYS;
+  return (
+    candidates[Math.floor(Math.random() * candidates.length)] ?? "phonePrefix"
+  );
+}
 
 const INVALID_WORD_TOASTS = [
   "없는 단어입니다. :(",
@@ -260,6 +313,7 @@ export default function WordBaseballGame({
     createDefaultHintCounts(),
   );
   const [hintState, setHintState] = useState<HintState>({});
+  const [coreHintUsed, setCoreHintUsed] = useState(0);
   const [nickname, setNickname] = useState("");
   const [nicknameInput, setNicknameInput] = useState("");
   const [isNewUser, setIsNewUser] = useState(false);
@@ -267,13 +321,18 @@ export default function WordBaseballGame({
   const [authPending, setAuthPending] = useState(false);
   const [authError, setAuthError] = useState("");
   const [securityOpen, setSecurityOpen] = useState(false);
-  const [securityStep, setSecurityStep] = useState(0);
+  const [securityField, setSecurityField] =
+    useState<SecurityField>("phonePrefix");
   const [securityAnswers, setSecurityAnswers] = useState<SecurityAnswers>(
     EMPTY_SECURITY_ANSWERS,
   );
   const [securityRetryErrors, setSecurityRetryErrors] = useState(0);
   const [invalidWordStreak, setInvalidWordStreak] = useState(0);
   const [gameSessionId, setGameSessionId] = useState(() => String(Date.now()));
+  const [themeMode, setThemeMode] = useState<ThemeMode>("dark");
+  const [loadingHeroCopy, setLoadingHeroCopy] = useState(
+    LOADING_HERO_COPY_INITIAL,
+  );
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const clearToastTimer = useCallback(() => {
@@ -300,6 +359,21 @@ export default function WordBaseballGame({
       clearToastTimer();
     };
   }, [clearToastTimer]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    const stored = window.localStorage.getItem(THEME_STORAGE_KEY);
+    if (stored === "dark" || stored === "light") {
+      setThemeMode(stored);
+      return;
+    }
+    const prefersLight = window.matchMedia(
+      "(prefers-color-scheme: light)",
+    ).matches;
+    setThemeMode(prefersLight ? "light" : "dark");
+  }, []);
 
   useEffect(() => {
     const storedStats = loadStoredStats();
@@ -409,6 +483,7 @@ export default function WordBaseballGame({
         hintRemoveUsed: defaults.remove - hintCounts.remove,
         hintYellowUsed: defaults.yellow - hintCounts.yellow,
         hintGreenUsed: defaults.green - hintCounts.green,
+        hintCoreUsed: coreHintUsed,
         securityRetryErrors,
         securityPhonePrefix: securityAnswers.phonePrefix,
         securityMiddle4: securityAnswers.middle4,
@@ -432,6 +507,7 @@ export default function WordBaseballGame({
       answer,
       gameSessionId,
       hintCounts,
+      coreHintUsed,
       nickname,
       securityAnswers,
       securityRetryErrors,
@@ -455,8 +531,9 @@ export default function WordBaseballGame({
     setShakeNonce(0);
     setHintCounts(createDefaultHintCounts());
     setHintState({});
+    setCoreHintUsed(0);
     setSecurityOpen(false);
-    setSecurityStep(0);
+    setSecurityField("phonePrefix");
     setSecurityAnswers(EMPTY_SECURITY_ANSWERS);
     setSecurityRetryErrors(0);
     setInvalidWordStreak(0);
@@ -517,7 +594,7 @@ export default function WordBaseballGame({
     [answer, pushToast, stats, statsLoaded],
   );
 
-  const commitGuess = useCallback(() => {
+  const commitGuess = useCallback(async () => {
     if (status !== "playing" || !answer) {
       return;
     }
@@ -530,14 +607,39 @@ export default function WordBaseballGame({
 
     const guess = currentGuess.join("");
 
+    // First check local word bank
     if (!isValidGuess(guess, validWordSet, WORD_LENGTH)) {
-      setInvalidWordStreak((current) => {
-        const next = current + 1;
-        pushToast(getInvalidWordToast(next));
-        return next;
-      });
-      setShakeNonce((value) => value + 1);
-      return;
+      // Real-time validation with KRDICT API
+      try {
+        const validation = await validateWordRealtime(guess);
+
+        if (!validation.isValid) {
+          setInvalidWordStreak((current) => {
+            const next = current + 1;
+            pushToast(getInvalidWordToast(next));
+            return next;
+          });
+          setShakeNonce((value) => value + 1);
+          return;
+        }
+
+        // Valid word found via API
+        const cacheIndicator = validation.fromCache ? " (캐시)" : " (검증)";
+        pushToast(`단어 확인됨${cacheIndicator}`, "success");
+      } catch (error) {
+        // API failed, fall back to basic pattern check
+        if (guess.length === WORD_LENGTH && /^[가-힣]+$/u.test(guess)) {
+          pushToast("네트워크 오류. 한글 단어로 진행합니다.", "success");
+        } else {
+          setInvalidWordStreak((current) => {
+            const next = current + 1;
+            pushToast(getInvalidWordToast(next));
+            return next;
+          });
+          setShakeNonce((value) => value + 1);
+          return;
+        }
+      }
     }
 
     const answerLetters = answer.jamo.split("");
@@ -591,8 +693,8 @@ export default function WordBaseballGame({
 
   const handleSecurityStart = useCallback(() => {
     setSecurityOpen(true);
-    setSecurityStep(0);
     setSecurityAnswers(EMPTY_SECURITY_ANSWERS);
+    setSecurityField(pickRandomSecurityField());
   }, []);
 
   const handleSecurityField = useCallback(
@@ -606,36 +708,25 @@ export default function WordBaseballGame({
   );
 
   const handleSecurityNext = useCallback(() => {
-    if (securityStep === 0) {
-      if (securityAnswers.phonePrefix !== "010") {
-        setSecurityRetryErrors((value) => value + 1);
-        setSecurityAnswers((current) => ({ ...current, phonePrefix: "" }));
-        pushToast("010이 아니면 당신은 로봇입니다. 다시시도.", "danger");
-        return;
-      }
-      setSecurityStep(1);
-      return;
-    }
+    const value = securityAnswers[securityField];
+    const isValid =
+      securityField === "phonePrefix"
+        ? value === "010"
+        : securityField === "middle4"
+          ? /^\d{4}$/u.test(value)
+          : /^\d{2}$/u.test(value);
 
-    if (securityStep === 1) {
-      if (!/^\d{4}$/u.test(securityAnswers.middle4)) {
-        setSecurityRetryErrors((value) => value + 1);
-        pushToast("중간자리 4자리를 숫자로 입력해라.");
-        return;
-      }
-      setSecurityStep(2);
-      return;
-    }
-
-    if (!/^\d{2}$/u.test(securityAnswers.account2)) {
-      setSecurityRetryErrors((value) => value + 1);
-      pushToast("계좌번호 뒷자리 2자리를 입력해라.");
+    if (!isValid) {
+      setSecurityRetryErrors((current) => current + 1);
+      setSecurityAnswers((current) => ({ ...current, [securityField]: "" }));
+      setSecurityField((current) => pickRandomSecurityField(current));
+      pushToast("보안검사 실패. 다른 무작위 질문으로 다시 시도해라.", "danger");
       return;
     }
 
     setSecurityOpen(false);
     resetGame();
-  }, [pushToast, resetGame, securityAnswers, securityStep]);
+  }, [pushToast, resetGame, securityAnswers, securityField]);
 
   const handleShare = useCallback(async () => {
     if (!lastResult) {
@@ -674,6 +765,16 @@ export default function WordBaseballGame({
     }
   }, [lastResult, pushToast]);
 
+  const toggleThemeMode = useCallback(() => {
+    setThemeMode((current) => {
+      const next: ThemeMode = current === "dark" ? "light" : "dark";
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(THEME_STORAGE_KEY, next);
+      }
+      return next;
+    });
+  }, []);
+
   const handleHint = useCallback(
     (kind: HintKind) => {
       if (status !== "playing" || !answer) {
@@ -707,6 +808,44 @@ export default function WordBaseballGame({
     },
     [answer, hintCounts, hintState, keyboardState, pushToast, status],
   );
+
+  const handleCoreHint = useCallback(() => {
+    if (status !== "playing" || !answer) {
+      return;
+    }
+    if (history.length !== MAX_ATTEMPTS - 1) {
+      pushToast("핵심 힌트는 마지막 시도에서만 사용 가능하다.");
+      return;
+    }
+    if (coreHintUsed >= CORE_HINT_LIMIT) {
+      pushToast("핵심 힌트는 이미 사용했다.");
+      return;
+    }
+
+    const candidates = getHintCandidates(
+      "green",
+      answer.jamo,
+      keyboardState,
+      hintState,
+    );
+    const chosen = pickHintCandidate(candidates);
+    if (!chosen) {
+      pushToast("더 보여줄 핵심 힌트가 없다.");
+      return;
+    }
+
+    setCoreHintUsed(1);
+    setHintState((current) => applyHintMark(current, chosen, "green"));
+    pushToast(`핵심 힌트: ${chosen}`, "success");
+  }, [
+    answer,
+    coreHintUsed,
+    hintState,
+    history.length,
+    keyboardState,
+    pushToast,
+    status,
+  ]);
 
   const renderKeyboardButton = (keyEntry: {
     physical: string;
@@ -843,12 +982,29 @@ export default function WordBaseballGame({
     validWords.length === 0 ||
     answerPool.length === 0 ||
     playableAnswerCount === 0;
+  const isWordLoading = authReady && !!nickname && isLoading;
+
+  useEffect(() => {
+    if (!isWordLoading) {
+      setLoadingHeroCopy(LOADING_HERO_COPY_INITIAL);
+      return;
+    }
+
+    setLoadingHeroCopy(LOADING_HERO_COPY_INITIAL);
+    const timeoutId = setTimeout(() => {
+      setLoadingHeroCopy(LOADING_HERO_COPY_SLOW);
+    }, LOADING_HERO_COPY_SLOW_DELAY_MS);
+
+    return () => {
+      clearTimeout(timeoutId);
+    };
+  }, [isWordLoading]);
   const hasWon = status === "won";
   const hasLost = status === "lost";
 
   if (!authReady) {
     return (
-      <main className="loadingState">
+      <main className="loadingState" data-theme={themeMode}>
         <div className="loadingCard">
           <div className="spinner" />
           <h1 className="heroTitle">사용자 정보를 확인하는 중</h1>
@@ -860,11 +1016,19 @@ export default function WordBaseballGame({
 
   if (!nickname) {
     return (
-      <main className="loadingState">
-        <div className="loadingCard authCard">
-          <h1 className="heroTitle">닉네임 확인</h1>
-          <p>
-            {`닉네임을 입력하고 시작해라. \n중복 닉네임은 허용되지 않는다.`}
+      <main className="loadingState" data-theme={themeMode}>
+        <div className="loadingCard authCard authCard--brand">
+          <button
+            type="button"
+            className="themeToggle"
+            onClick={toggleThemeMode}
+          >
+            {themeMode === "dark" ? "Light" : "Dark"}
+          </button>
+          <h1 className="loginBrand">WBG</h1>
+          {/* <p className="loginSubtitle">Word Baseball Game</p> */}
+          <p className="heroCopy">
+            닉네임을 입력하고 시작해라. 닉네임은 중복 허용되지 않는다.
           </p>
           <input
             className="authInput"
@@ -893,8 +1057,16 @@ export default function WordBaseballGame({
               }
             }}
           >
-            {authPending ? "확인 중..." : "시작하기"}
+            {authPending ? (
+              <span className="buttonLoading">
+                <span className="spinnerInline" />
+                확인 중...
+              </span>
+            ) : (
+              "시작하기"
+            )}
           </button>
+          <p className="creditLine">copyright © gurengeo upda. BBO feat.PSY</p>
         </div>
       </main>
     );
@@ -902,30 +1074,37 @@ export default function WordBaseballGame({
 
   if (isLoading) {
     return (
-      <main className="loadingState">
+      <main className="loadingState" data-theme={themeMode}>
         <div className="loadingCard">
           <div className="spinner" />
           <h1 className="heroTitle">한글 야구를 준비하는 중</h1>
-          <p className="heroCopy">
-            단어 목록을 불러오고 있어. 잠깐만 기다리면 바로 시작된다.
-          </p>
+          <p className="heroCopy">{loadingHeroCopy}</p>
         </div>
       </main>
     );
   }
 
   return (
-    <main className="pageShell">
+    <main className="pageShell" data-theme={themeMode}>
       <section className="gameCard" aria-label="한글 야구 게임">
         <header className="hero">
-          <h1 className="heroTitle">한글 야구</h1>
+          <div className="heroTop">
+            <h1 className="heroTitle">WBG</h1>
+            <button
+              type="button"
+              className="themeToggle"
+              onClick={toggleThemeMode}
+            >
+              {themeMode === "dark" ? "Light" : "Dark"}
+            </button>
+          </div>
           <p className="heroCopy">{MAX_ATTEMPTS}번 안에 5자모 단어를 맞춰라.</p>
 
           <details className="gameDetails">
             <summary className="gameDetailsSummary">규칙</summary>
             <div className="gameDetailsBody">
               <p>틀린 단어는 횟수 미차감. 회색 키도 다시 누를 수 있다.</p>
-              <p>힌트는 제거 3회(랜듬이다), 노란색 2회, 초록색 1회.</p>
+              <p>힌트는 랜덤 제거 3회 + 마지막 시도 핵심 힌트 1회.</p>
             </div>
           </details>
         </header>
@@ -1032,6 +1211,21 @@ export default function WordBaseballGame({
                   </button>
                 );
               })}
+              {status === "playing" && attemptsLeft === 1 ? (
+                <button
+                  type="button"
+                  className={`key hintButton hintButton--green${coreHintUsed >= CORE_HINT_LIMIT ? " key--disabled" : ""}`}
+                  onClick={handleCoreHint}
+                  disabled={coreHintUsed >= CORE_HINT_LIMIT}
+                  aria-label={`핵심 힌트 ${Math.max(CORE_HINT_LIMIT - coreHintUsed, 0)}회 남음`}
+                >
+                  <span className="hintButtonTitle">핵심 힌트</span>
+                  <span className="hintButtonNote">못 찾은 글자 1개</span>
+                  <span className="hintButtonCount">
+                    {Math.max(CORE_HINT_LIMIT - coreHintUsed, 0)}회
+                  </span>
+                </button>
+              ) : null}
             </div>
           </div>
 
@@ -1084,55 +1278,19 @@ export default function WordBaseballGame({
             >
               <div className="securityCard">
                 <h3 className="securityTitle">보안검사</h3>
-                {securityStep === 0 ? (
-                  <>
-                    <p className="securityCopy">
-                      핸드폰번호 앞자리 3개 입력하라.
-                    </p>
-                    <input
-                      className="securityInput"
-                      value={securityAnswers.phonePrefix}
-                      onChange={(event) =>
-                        handleSecurityField("phonePrefix", event.target.value)
-                      }
-                      maxLength={3}
-                      inputMode="numeric"
-                      placeholder="010"
-                    />
-                  </>
-                ) : null}
-                {securityStep === 1 ? (
-                  <>
-                    <p className="securityCopy">중간자리 4개 입력하라.</p>
-                    <input
-                      className="securityInput"
-                      value={securityAnswers.middle4}
-                      onChange={(event) =>
-                        handleSecurityField("middle4", event.target.value)
-                      }
-                      maxLength={4}
-                      inputMode="numeric"
-                      placeholder="1234"
-                    />
-                  </>
-                ) : null}
-                {securityStep === 2 ? (
-                  <>
-                    <p className="securityCopy">
-                      계좌번호 뒷자리 2개 입력하라. (비밀번호 아닙니다.)
-                    </p>
-                    <input
-                      className="securityInput"
-                      value={securityAnswers.account2}
-                      onChange={(event) =>
-                        handleSecurityField("account2", event.target.value)
-                      }
-                      maxLength={2}
-                      inputMode="numeric"
-                      placeholder="12"
-                    />
-                  </>
-                ) : null}
+                <p className="securityCopy">
+                  {SECURITY_PROMPTS[securityField].copy}
+                </p>
+                <input
+                  className="securityInput"
+                  value={securityAnswers[securityField]}
+                  onChange={(event) =>
+                    handleSecurityField(securityField, event.target.value)
+                  }
+                  maxLength={SECURITY_PROMPTS[securityField].maxLength}
+                  inputMode="numeric"
+                  placeholder={SECURITY_PROMPTS[securityField].placeholder}
+                />
                 <div className="securityActions">
                   <button
                     type="button"
@@ -1146,7 +1304,7 @@ export default function WordBaseballGame({
                     className="key"
                     onClick={handleSecurityNext}
                   >
-                    다음
+                    {SECURITY_PROMPTS[securityField].submitLabel}
                   </button>
                 </div>
               </div>
@@ -1160,6 +1318,7 @@ export default function WordBaseballGame({
           >
             {toast?.message ?? " "}
           </div>
+          <p className="creditLine">BOO feat.PSY</p>
         </div>
       </section>
     </main>

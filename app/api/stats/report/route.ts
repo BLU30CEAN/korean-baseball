@@ -31,6 +31,7 @@ interface DetailLogRow {
   hintRemoveUsed: number;
   hintYellowUsed: number;
   hintGreenUsed: number;
+  hintCoreUsed: number;
   securityRetryErrors: number;
   securityPhonePrefix: string;
   securityMiddle4: string;

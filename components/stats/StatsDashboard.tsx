@@ -27,6 +27,7 @@ interface DetailLogRow {
   hintRemoveUsed: number;
   hintYellowUsed: number;
   hintGreenUsed: number;
+  hintCoreUsed: number;
   securityRetryErrors: number;
   securityPhonePrefix: string;
   securityMiddle4: string;
@@ -111,7 +112,14 @@ export default function StatsDashboard() {
                 disabled={loading}
                 onClick={() => void fetchStats()}
               >
-                {loading ? "확인 중..." : "통계 진입"}
+                {loading ? (
+                  <span className="buttonLoading">
+                    <span className="spinnerInline" />
+                    확인 중...
+                  </span>
+                ) : (
+                  "통계 진입"
+                )}
               </button>
               {error ? <p className="authError">{error}</p> : null}
             </div>
@@ -136,7 +144,14 @@ export default function StatsDashboard() {
                   disabled={loading || !nicknameFilter}
                   onClick={() => void fetchStats(nicknameFilter)}
                 >
-                  상세 조회
+                  {loading ? (
+                    <span className="buttonLoading">
+                      <span className="spinnerInline" />
+                      조회 중...
+                    </span>
+                  ) : (
+                    "상세 조회"
+                  )}
                 </button>
               </div>
 

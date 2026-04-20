@@ -1,4 +1,4 @@
-timestamp	nickname	problemNo	rowType	attemptNo	guess	marks	answerWord	answerJamo	outcome	reason	attemptCount	hintRemoveUsed	hintYellowUsed	hintGreenUsed	securityRetryErrors	securityPhonePrefix	securityMiddle4	securityAccount2	attemptGuesses
-2026-04-17T06:10:00.000Z	demo_user	1713334200000	attempt	1	ㅅㅜㄱㅈㅏ	out|strike|ball|strike|strike	숫자	ㅅㅜㅅㅈㅏ	attempt	attempt	1	0	0	0	0	010	1234	56	ㅅㅜㄱㅈㅏ
-2026-04-17T06:10:20.000Z	demo_user	1713334200000	attempt	2	ㅅㅜㅈㅈㅏ	strikeDup|strike|out|strike|strike	숫자	ㅅㅜㅅㅈㅏ	attempt	attempt	2	1	0	0	0	010	1234	56	ㅅㅜㄱㅈㅏ|ㅅㅜㅈㅈㅏ
-2026-04-17T06:10:40.000Z	demo_user	1713334200000	attempt	3	ㅅㅜㅅㅈㅏ	strikeDup|strike|strikeDup|strike|strike	숫자	ㅅㅜㅅㅈㅏ	won	solved	3	1	1	0	0	010	1234	56	ㅅㅜㄱㅈㅏ|ㅅㅜㅈㅈㅏ|ㅅㅜㅅㅈㅏ
+timestamp	nickname	problemNo	rowType	attemptNo	guess	marks	answerWord	answerJamo	outcome	reason	attemptCount	hintRemoveUsed	hintYellowUsed	hintGreenUsed	hintCoreUsed	securityRetryErrors	securityPhonePrefix	securityMiddle4	securityAccount2	attemptGuesses
+2026-04-17T06:10:00.000Z	demo_user	1713334200000	attempt	1	ㅅㅜㄱㅈㅏ	out|strike|ball|strike|strike	숫자	ㅅㅜㅅㅈㅏ	attempt	attempt	1	0	0	0	0	0	010	1234	56	ㅅㅜㄱㅈㅏ
+2026-04-17T06:10:20.000Z	demo_user	1713334200000	attempt	2	ㅅㅜㅈㅈㅏ	strikeDup|strike|out|strike|strike	숫자	ㅅㅜㅅㅈㅏ	attempt	attempt	2	1	0	0	0	0	010	1234	56	ㅅㅜㄱㅈㅏ|ㅅㅜㅈㅈㅏ
+2026-04-17T06:10:40.000Z	demo_user	1713334200000	attempt	3	ㅅㅜㅅㅈㅏ	strikeDup|strike|strikeDup|strike|strike	숫자	ㅅㅜㅅㅈㅏ	won	solved	3	1	0	0	1	0	010	1234	56	ㅅㅜㄱㅈㅏ|ㅅㅜㅈㅈㅏ|ㅅㅜㅅㅈㅏ

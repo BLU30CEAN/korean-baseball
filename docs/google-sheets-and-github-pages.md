@@ -32,3 +32,4 @@ STATS_PASSWORD=813
   - `wbg_member`
   - `wbg_history`
 - Apps Script가 접근할 수 있는 스프레드시트로 설정한다.
+- `wbg_history` 컬럼에 `hintCoreUsed`(마지막 시도 핵심 힌트 사용 여부, 0/1) 포함.

@@ -3,7 +3,13 @@ import assert from "node:assert/strict";
 import { countJamo, isPlayableWord, toJamoString } from "../lib/game/hangul";
 import { getHintCandidates, pickHintCandidate, createDefaultHintCounts, applyHintMark } from "../lib/game/hints";
 import { isValidGuess, judgeGuess, mergeKeyboardState } from "../lib/game/logic";
-import { MAX_ATTEMPTS, QWERTY_KEY_ROWS, applyJamoInput, isTypeableWord } from "../lib/game/keymap";
+import {
+  MAX_ATTEMPTS,
+  QWERTY_KEY_ROWS,
+  applyJamoInput,
+  isTypeableWord,
+  resolvePhysicalKey,
+} from "../lib/game/keymap";
 import type { KeyboardState } from "../lib/game/types";
 
 test("hangul normalization", () => {
@@ -59,11 +65,13 @@ test("typeable word filter", () => {
 });
 
 test("qwerty keyboard layout and atomic input", () => {
+  assert.equal(QWERTY_KEY_ROWS[0].length, 8);
   assert.equal(QWERTY_KEY_ROWS[0][0].physical, "q");
   assert.equal(QWERTY_KEY_ROWS[0][0].label, "ㅂ");
   assert.deepEqual(applyJamoInput(["ㄱ", "ㅗ"], "ㅏ"), ["ㄱ", "ㅗ", "ㅏ"]);
-  assert.deepEqual(applyJamoInput(["ㄱ", "ㅗ"], "ㅐ"), ["ㄱ", "ㅗ", "ㅐ"]);
   assert.deepEqual(applyJamoInput(["ㄱ"], "ㅘ"), ["ㄱ"]);
+  assert.equal(resolvePhysicalKey("o"), undefined);
+  assert.equal(resolvePhysicalKey("p"), undefined);
   assert.deepEqual(applyJamoInput(["ㄱ"], "q"), ["ㄱ"]);
 });
 
