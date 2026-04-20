@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   ACTION_KEY_ROW,
   type KeyboardKey,
@@ -200,10 +200,6 @@ const HINT_BUTTON_ORDER: HintKind[] = ["remove"];
 const CORE_HINT_LIMIT = 1;
 const NICKNAME_STORAGE_KEY = "word-baseball.nickname.v1";
 const THEME_STORAGE_KEY = "word-baseball.theme.v1";
-const LOADING_HERO_COPY_INITIAL =
-  "단어 목록을 불러오고 있어. 잠깐만 기다리면 바로 시작된다.";
-const LOADING_HERO_COPY_SLOW = "사실 느립니다. 미안해오";
-const LOADING_HERO_COPY_SLOW_DELAY_MS = 3000;
 
 type ThemeMode = "dark" | "light";
 
@@ -330,10 +326,10 @@ export default function WordBaseballGame({
   const [invalidWordStreak, setInvalidWordStreak] = useState(0);
   const [gameSessionId, setGameSessionId] = useState(() => String(Date.now()));
   const [themeMode, setThemeMode] = useState<ThemeMode>("dark");
-  const [loadingHeroCopy, setLoadingHeroCopy] = useState(
-    LOADING_HERO_COPY_INITIAL,
-  );
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const bodyRef = useRef<HTMLDivElement | null>(null);
+  const bodyInnerRef = useRef<HTMLDivElement | null>(null);
+  const [bodyScale, setBodyScale] = useState(1);
 
   const clearToastTimer = useCallback(() => {
     if (toastTimerRef.current) {
@@ -982,25 +978,121 @@ export default function WordBaseballGame({
     validWords.length === 0 ||
     answerPool.length === 0 ||
     playableAnswerCount === 0;
-  const isWordLoading = authReady && !!nickname && isLoading;
+
+  const [isLoadingSlowMessage, setIsLoadingSlowMessage] = useState(false);
+  const isWordBankLoading = authReady && !!nickname && isLoading;
 
   useEffect(() => {
-    if (!isWordLoading) {
-      setLoadingHeroCopy(LOADING_HERO_COPY_INITIAL);
+    if (!isWordBankLoading) {
+      setIsLoadingSlowMessage(false);
       return;
     }
 
-    setLoadingHeroCopy(LOADING_HERO_COPY_INITIAL);
     const timeoutId = setTimeout(() => {
-      setLoadingHeroCopy(LOADING_HERO_COPY_SLOW);
-    }, LOADING_HERO_COPY_SLOW_DELAY_MS);
+      setIsLoadingSlowMessage(true);
+    }, 3000);
 
-    return () => {
-      clearTimeout(timeoutId);
-    };
-  }, [isWordLoading]);
+    return () => clearTimeout(timeoutId);
+  }, [isWordBankLoading]);
+
   const hasWon = status === "won";
   const hasLost = status === "lost";
+
+  const recalcBodyScale = useCallback(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    if (!bodyRef.current || !bodyInnerRef.current) {
+      return;
+    }
+
+    const bodyEl = bodyRef.current;
+    const innerEl = bodyInnerRef.current;
+
+    const bodyStyles = window.getComputedStyle(bodyEl);
+    const paddingTop = parseFloat(bodyStyles.paddingTop) || 0;
+    const paddingBottom = parseFloat(bodyStyles.paddingBottom) || 0;
+
+    const availableHeight = bodyEl.clientHeight - paddingTop - paddingBottom;
+    const contentHeight = innerEl.scrollHeight;
+
+    if (!contentHeight || contentHeight <= 0) {
+      setBodyScale(1);
+      return;
+    }
+
+    if (availableHeight <= 0) {
+      setBodyScale(0);
+      return;
+    }
+
+    // scale only when content overflows. `-1` to be safe against sub-pixel rounding.
+    const nextScale = Math.max(
+      0,
+      Math.min(1, (availableHeight - 1) / contentHeight),
+    );
+
+    setBodyScale((prev) =>
+      Math.abs(prev - nextScale) < 0.01 ? prev : nextScale,
+    );
+  }, []);
+
+  useLayoutEffect(() => {
+    recalcBodyScale();
+  }, [
+    recalcBodyScale,
+    authReady,
+    nickname,
+    isLoading,
+    status,
+    history.length,
+    lastResult?.answer.definition,
+  ]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    let rafId: number | null = null;
+    const scheduleRecalc = () => {
+      if (rafId != null) {
+        window.cancelAnimationFrame(rafId);
+      }
+
+      rafId = window.requestAnimationFrame(() => {
+        rafId = null;
+        recalcBodyScale();
+      });
+    };
+
+    window.addEventListener("resize", scheduleRecalc);
+
+    const bodyEl = bodyRef.current;
+    const innerEl = bodyInnerRef.current;
+
+    if (typeof ResizeObserver !== "undefined" && (bodyEl || innerEl)) {
+      const observer = new ResizeObserver(() => scheduleRecalc());
+      if (bodyEl) observer.observe(bodyEl);
+      if (innerEl) observer.observe(innerEl);
+
+      return () => {
+        if (rafId != null) {
+          window.cancelAnimationFrame(rafId);
+        }
+        window.removeEventListener("resize", scheduleRecalc);
+        observer.disconnect();
+      };
+    }
+
+    return () => {
+      if (rafId != null) {
+        window.cancelAnimationFrame(rafId);
+      }
+      window.removeEventListener("resize", scheduleRecalc);
+    };
+  }, [recalcBodyScale]);
 
   if (!authReady) {
     return (
@@ -1078,7 +1170,11 @@ export default function WordBaseballGame({
         <div className="loadingCard">
           <div className="spinner" />
           <h1 className="heroTitle">한글 야구를 준비하는 중</h1>
-          <p className="heroCopy">{loadingHeroCopy}</p>
+          <p className="heroCopy">
+            {isLoadingSlowMessage
+              ? "사실 느립니다. 미안해오"
+              : "단어 목록을 불러오고 있어. 잠깐만 기다리면 바로 시작된다."}
+          </p>
         </div>
       </main>
     );
@@ -1098,19 +1194,27 @@ export default function WordBaseballGame({
               {themeMode === "dark" ? "Light" : "Dark"}
             </button>
           </div>
-          <p className="heroCopy">{MAX_ATTEMPTS}번 안에 5자모 단어를 맞춰라.</p>
+          {/* <p className="heroCopy">{MAX_ATTEMPTS}번 안에 5자모 단어를 맞춰라.</p> */}
 
           <details className="gameDetails">
             <summary className="gameDetailsSummary">규칙</summary>
             <div className="gameDetailsBody">
               <p>틀린 단어는 횟수 미차감. 회색 키도 다시 누를 수 있다.</p>
-              <p>힌트는 랜덤 제거 3회 + 마지막 시도 핵심 힌트 1회.</p>
+              <p>힌트는 랜덤 제거 3회</p>
             </div>
           </details>
         </header>
 
-        <div className="body">
-          {(hasWon || hasLost) && (
+        <div className="body body--scaled" ref={bodyRef}>
+          <div
+            className="bodyInner"
+            ref={bodyInnerRef}
+            style={{
+              transform: `scale(${bodyScale})`,
+                transformOrigin: "top center",
+            }}
+          >
+            {(hasWon || hasLost) && (
             <div
               className={`banner ${hasWon ? "banner--win" : "banner--lose"}`}
             >
@@ -1137,7 +1241,7 @@ export default function WordBaseballGame({
                 다시 하기
               </button>
             </div>
-          )}
+            )}
 
           <div className="board" aria-label="시도 보드">
             {Array.from({ length: MAX_ATTEMPTS }, (_, rowIndex) => {
@@ -1264,9 +1368,14 @@ export default function WordBaseballGame({
             >
               공유하기
             </button>
-            <a className="key actionButton" href="/stats">
-              통계
-            </a>
+            {nickname === "통계" ? (
+              <a className="key actionButton" href="/stats">
+                통계
+              </a>
+            ) : null}
+          </div>
+
+            <p className="creditLine">BOO feat.PSY</p>
           </div>
 
           {securityOpen ? (
@@ -1318,7 +1427,6 @@ export default function WordBaseballGame({
           >
             {toast?.message ?? " "}
           </div>
-          <p className="creditLine">BOO feat.PSY</p>
         </div>
       </section>
     </main>

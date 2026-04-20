@@ -111,11 +111,11 @@ const FALLBACK_BANK: WordBankEntry[] = [
     definition: "물체의 모습을 비추어 보게 하는 평평하고 매끈한 표면의 물건.",
   },
   {
-    word: "자몽",
-    jamo: "ㅈㅏㅁㅗㅇ",
+    word: "재롱",
+    jamo: "ㅈㅐㄹㅗㅇ",
     pos: "noun",
     parts: ["noun"],
-    definition: "귤과에 속하는 감귤류 과일.",
+    definition: "어린아이가 귀엽게 부리는 장난.",
   },
   {
     word: "숙주",

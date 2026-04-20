@@ -312,6 +312,17 @@ button:disabled {
   overflow: hidden auto;
 }
 
+/* Game layout: keep board+keyboard in view (no internal scrollbars). */
+.gameCard:not(.statsCard) .body--scaled {
+  display: block;
+  overflow: hidden;
+}
+
+.gameCard:not(.statsCard) .bodyInner {
+  display: grid;
+  gap: var(--space-4);
+}
+
 /* === GAME SPECIFIC COMPONENTS === */
 .board {
   display: grid;
@@ -740,13 +751,13 @@ button:disabled {
 /* Responsive Design */
 @media (max-width: 32rem) {
   .pageShell {
-    padding: var(--space-2);
+    padding: env(safe-area-inset-top) var(--space-2) env(safe-area-inset-bottom) var(--space-2);
     align-items: stretch;
   }
   
   .gameCard {
     width: 100%;
-    height: 100dvh;
+    height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
     max-height: none;
     border-radius: var(--radius-xl);
   }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 interface RankingRow {
   nickname: string;
@@ -44,6 +44,11 @@ interface StatsResponse {
 }
 
 export default function StatsDashboard() {
+  const NICKNAME_STORAGE_KEY = "word-baseball.nickname.v1";
+
+  const [nicknameLoaded, setNicknameLoaded] = useState(false);
+  const [currentNickname, setCurrentNickname] = useState("");
+
   const [password, setPassword] = useState("");
   const [authorized, setAuthorized] = useState(false);
   const [nicknameFilter, setNicknameFilter] = useState("");
@@ -54,6 +59,13 @@ export default function StatsDashboard() {
   const [loading, setLoading] = useState(false);
 
   const currentMemberOptions = useMemo(() => members.filter(Boolean), [members]);
+
+  useEffect(() => {
+    const saved =
+      window.localStorage.getItem(NICKNAME_STORAGE_KEY) ?? "";
+    setCurrentNickname(saved);
+    setNicknameLoaded(true);
+  }, []);
 
   const fetchStats = async (withNickname?: string) => {
     setLoading(true);
@@ -87,6 +99,45 @@ export default function StatsDashboard() {
       setLoading(false);
     }
   };
+
+  if (!nicknameLoaded) {
+    return (
+      <main className="pageShell">
+        <section
+          className="gameCard statsCard"
+          aria-label="통계 대시보드"
+        >
+          <header className="hero">
+            <h1 className="heroTitle">통계</h1>
+            <p className="heroCopy">로딩 중...</p>
+          </header>
+        </section>
+      </main>
+    );
+  }
+
+  if (currentNickname !== "통계") {
+    return (
+      <main className="pageShell">
+        <section
+          className="gameCard statsCard"
+          aria-label="통계 대시보드"
+        >
+          <header className="hero">
+            <h1 className="heroTitle">통계</h1>
+            <p className="heroCopy">닉네임이 '통계'일 때만 확인할 수 있다.</p>
+          </header>
+          <div className="body">
+            <div className="authCard">
+              <p className="heroCopy">
+                현재 닉네임: <strong>{currentNickname || "-"}</strong>
+              </p>
+            </div>
+          </div>
+        </section>
+      </main>
+    );
+  }
 
   return (
     <main className="pageShell">
