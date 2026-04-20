@@ -1,3 +1,5 @@
+import { composeHangulWord, isHangulWord } from "@/lib/game/hangul";
+
 interface KrdictItem {
   word?: string;
   sense?: {
@@ -23,6 +25,27 @@ interface ValidationResult {
   fromCache: boolean;
 }
 
+function decodeXml(value: string): string {
+  return value
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&amp;/g, "&")
+    .replace(/&#(\d+);/g, (_, code: string) => String.fromCodePoint(Number(code)))
+    .replace(/&#x([\da-fA-F]+);/g, (_, code: string) => String.fromCodePoint(Number.parseInt(code, 16)));
+}
+
+function extractXmlTagValue(block: string, tagName: string): string | undefined {
+  const pattern = new RegExp(String.raw`<${tagName}>([\s\S]*?)<\/${tagName}>`);
+  const match = block.match(pattern);
+  if (!match) {
+    return undefined;
+  }
+
+  return decodeXml(match[1].trim());
+}
+
 class WordValidator {
   private cache = new Map<string, ValidationResult>();
   private apiKey: string;
@@ -33,24 +56,27 @@ class WordValidator {
   }
 
   async validateWord(word: string): Promise<ValidationResult> {
+    const normalized = word.normalize("NFC").trim();
+
     // Check cache first
-    const cached = this.cache.get(word);
+    const cached = this.cache.get(normalized);
     if (cached) {
       return { ...cached, fromCache: true };
     }
 
-    // Basic Korean word pattern check
-    if (!/^[가-힣]+$/u.test(word)) {
+    if (!isHangulWord(normalized)) {
       const result: ValidationResult = { isValid: false, fromCache: false };
-      this.cache.set(word, result);
+      this.cache.set(normalized, result);
       return result;
     }
 
     try {
       const url = new URL(this.baseUrl);
       url.searchParams.set("key", this.apiKey);
-      url.searchParams.set("q", word);
+      url.searchParams.set("q", normalized);
       url.searchParams.set("req_type", "xml");
+      url.searchParams.set("part", "word");
+      url.searchParams.set("method", "exact");
       url.searchParams.set("num", "1");
 
       const response = await fetch(url.toString(), {
@@ -66,36 +92,38 @@ class WordValidator {
       }
 
       const xmlText = await response.text();
-      
-      // Parse XML response
-      const totalMatch = xmlText.match(/<total>(\d+)<\/total>/);
-      const total = totalMatch ? parseInt(totalMatch[1], 10) : 0;
+      const items = xmlText.match(/<item>[\s\S]*?<\/item>/g) ?? [];
 
-      if (total === 0) {
-        const result: ValidationResult = { isValid: false, fromCache: false };
-        this.cache.set(word, result);
+      for (const item of items) {
+        const itemWord = extractXmlTagValue(item, "word")?.normalize("NFC").trim();
+        if (itemWord !== normalized) {
+          continue;
+        }
+
+        const definition = extractXmlTagValue(item, "definition");
+        const result: ValidationResult = {
+          isValid: true,
+          definition,
+          fromCache: false,
+        };
+        this.cache.set(normalized, result);
         return result;
       }
 
-      // Extract definition if available
-      const definitionMatch = xmlText.match(/<definition><!\[CDATA\[(.*?)\]\]><\/definition>/);
-      const definition = definitionMatch ? definitionMatch[1] : undefined;
-
-      const result: ValidationResult = { 
-        isValid: true, 
-        definition, 
-        fromCache: false 
+      const totalMatch = xmlText.match(/<total>(\d+)<\/total>/);
+      const total = totalMatch ? Number.parseInt(totalMatch[1], 10) : 0;
+      const result: ValidationResult = {
+        isValid: total > 0,
+        fromCache: false,
       };
-      this.cache.set(word, result);
+      this.cache.set(normalized, result);
       return result;
 
     } catch (error) {
       console.warn("Word validation failed:", error);
-      
-      // Fallback: allow Korean words but mark as unverified
-      const result: ValidationResult = { 
-        isValid: true, // Allow through as fallback
-        fromCache: false 
+      const result: ValidationResult = {
+        isValid: true,
+        fromCache: false,
       };
       return result;
     }
@@ -147,17 +175,27 @@ export function getWordValidator(): WordValidator | null {
 }
 
 export async function validateWordRealtime(word: string): Promise<ValidationResult> {
-  const validatorInstance = getWordValidator();
-  
-  if (!validatorInstance) {
-    // Fallback: basic pattern check
+  const normalized = word.normalize("NFC").trim();
+  const composed = isHangulWord(normalized)
+    ? normalized
+    : composeHangulWord(normalized);
+  if (!composed || !isHangulWord(composed)) {
     return {
-      isValid: /^[가-힣]+$/u.test(word),
-      fromCache: false
+      isValid: false,
+      fromCache: false,
     };
   }
 
-  return validatorInstance.validateWord(word);
+  const validatorInstance = getWordValidator();
+
+  if (!validatorInstance) {
+    return {
+      isValid: true,
+      fromCache: false,
+    };
+  }
+
+  return validatorInstance.validateWord(composed);
 }
 
 export type { ValidationResult };

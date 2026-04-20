@@ -20,7 +20,7 @@ interface WordBankEntry {
   jamo: string;
   pos?: string;
   parts: string[];
-  definition: string;
+  definition?: string;
 }
 
 interface CandidateWord {
@@ -233,19 +233,15 @@ function parseKrdictItem(item: string): WordBankEntry | null {
     return null;
   }
 
-  const definition = extractXmlTagValues(item, "definition")[0]?.trim();
-  if (!definition) {
-    return null;
-  }
-
   const pos = normalizePos(extractXmlTagValues(item, "pos")[0]);
+  const definition = extractXmlTagValues(item, "definition")[0]?.trim();
 
   return {
     word,
     jamo,
     pos,
     parts: pos ? [pos] : [],
-    definition,
+    ...(definition ? { definition } : {}),
   };
 }
 
@@ -259,6 +255,7 @@ async function fetchKrdictDefinition(word: string): Promise<string | undefined> 
   url.searchParams.set("q", word);
   url.searchParams.set("req_type", "xml");
   url.searchParams.set("part", "word");
+  url.searchParams.set("method", "exact");
   url.searchParams.set("num", "10");
 
   const response = await fetch(url);
@@ -325,7 +322,7 @@ async function fetchKrdictPrefixEntries(prefix: string): Promise<WordBankEntry[]
 }
 
 function scoreWordEntry(entry: WordBankEntry): number {
-  return (isAnswerPos(entry.pos) ? 1_000_000 : 0) + entry.definition.length;
+  return (isAnswerPos(entry.pos) ? 1_000_000 : 0) + (entry.definition?.length ?? 0);
 }
 
 function mergeWordEntries(entries: WordBankEntry[]): WordBankEntry[] {
@@ -343,27 +340,17 @@ function mergeWordEntries(entries: WordBankEntry[]): WordBankEntry[] {
 }
 
 async function resolveCandidateDefinition(candidate: CandidateWord): Promise<WordBankEntry | null> {
+  let definition = candidate.fallbackDefinition;
+
   if (KRDICT_KEY) {
     try {
-      const definition = await fetchKrdictDefinition(candidate.word);
-      if (!definition) {
-        return null;
+      const krdictDefinition = await fetchKrdictDefinition(candidate.word);
+      if (krdictDefinition) {
+        definition = krdictDefinition;
       }
-
-      return {
-        word: candidate.word,
-        jamo: candidate.jamo,
-        pos: candidate.pos,
-        parts: uniqueParts(candidate.parts),
-        definition,
-      };
     } catch {
-      return null;
+      // Keep the candidate even when KRDICT misses or times out.
     }
-  }
-
-  if (!candidate.fallbackDefinition) {
-    return null;
   }
 
   return {
@@ -371,7 +358,7 @@ async function resolveCandidateDefinition(candidate: CandidateWord): Promise<Wor
     jamo: candidate.jamo,
     pos: candidate.pos,
     parts: uniqueParts(candidate.parts),
-    definition: candidate.fallbackDefinition,
+    ...(definition ? { definition } : {}),
   };
 }
 
@@ -478,8 +465,8 @@ async function buildFromSource() {
 }
 
 async function main() {
-  if (!KRDICT_KEY && !ALLOW_WORDBANK_FALLBACK) {
-    throw new Error("KRDICT_KEY is required to build a definitive word bank.");
+  if (!KRDICT_KEY) {
+    console.warn("KRDICT_KEY is missing. Building from source definitions and fallback data only.");
   }
 
   try {
