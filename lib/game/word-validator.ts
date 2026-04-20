@@ -16,11 +16,18 @@ type ApiValidateBody = {
 };
 
 async function validateViaProxy(composed: string): Promise<ValidationResult> {
-  const response = await fetch("/api/krdict/validate", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ word: composed }),
-  });
+  const callProxy = () =>
+    fetch("/api/krdict/validate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ word: composed }),
+    });
+
+  let response = await callProxy();
+  if (!response.ok && response.status >= 500) {
+    // transient upstream/router failure: retry once
+    response = await callProxy();
+  }
 
   const data = (await response.json()) as ApiValidateBody;
 
@@ -34,7 +41,7 @@ async function validateViaProxy(composed: string): Promise<ValidationResult> {
       const direct = await lookupKrdictWord(composed, legacy);
       return { ...direct, fromCache: false };
     }
-    return { isValid: false, fromCache: false };
+    throw new Error("krdict_key_missing");
   }
 
   if (!response.ok) {

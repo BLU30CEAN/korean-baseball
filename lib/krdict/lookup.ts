@@ -45,11 +45,12 @@ export async function lookupKrdictWord(
 
   const url = new URL(KRDICT_SEARCH_URL);
   url.searchParams.set("key", apiKey);
+  url.searchParams.set("type_search", "search");
   url.searchParams.set("q", normalized);
   url.searchParams.set("req_type", "xml");
   url.searchParams.set("part", "word");
   url.searchParams.set("method", "exact");
-  url.searchParams.set("num", "1");
+  url.searchParams.set("num", "10");
 
   const response = await fetch(url.toString(), {
     method: "GET",

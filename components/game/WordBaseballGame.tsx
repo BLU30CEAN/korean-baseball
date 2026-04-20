@@ -26,7 +26,6 @@ import {
   createDefaultGameStats,
   normalizeGameStats,
 } from "@/lib/game/stats";
-import { composeHangulWord } from "@/lib/game/hangul";
 import { judgeGuess, isValidGuess, mergeKeyboardState } from "@/lib/game/logic";
 import {
   validateWordRealtime,
@@ -208,6 +207,10 @@ interface SecurityAnswers {
   phonePrefix: string;
   middle4: string;
   account2: string;
+  birthMonthDay: string;
+  lucky2: string;
+  favorite3: string;
+  lunch2: string;
 }
 
 type SecurityField = keyof SecurityAnswers;
@@ -220,25 +223,62 @@ const SECURITY_FIELD_KEYS: SecurityField[] = [
 
 const SECURITY_PROMPTS: Record<
   SecurityField,
-  { copy: string; placeholder: string; maxLength: number; submitLabel: string }
+  {
+    copy: string;
+    placeholder: string;
+    maxLength: number;
+    submitLabel: string;
+    validator: (value: string) => boolean;
+  }
 > = {
   phonePrefix: {
     copy: "오늘 먹은 점심 가격 앞자리 3개 입력하라. (예: 010)",
     placeholder: "010",
     maxLength: 3,
     submitLabel: "확인",
+    validator: (value) => value === "010",
   },
   middle4: {
     copy: "세상에서 제일 좋아하는 숫자 4개 입력하라.",
     placeholder: "1234",
     maxLength: 4,
     submitLabel: "확인",
+    validator: (value) => /^\d{4}$/u.test(value),
   },
   account2: {
     copy: "어제 꾼 꿈 번호 뒤 2자리 입력하라.",
     placeholder: "12",
     maxLength: 2,
     submitLabel: "확인",
+    validator: (value) => /^\d{2}$/u.test(value),
+  },
+  birthMonthDay: {
+    copy: "좋아하는 월일 4자리 입력하라. (예: 1225)",
+    placeholder: "1225",
+    maxLength: 4,
+    submitLabel: "확인",
+    validator: (value) => /^\d{4}$/u.test(value),
+  },
+  lucky2: {
+    copy: "행운 숫자 2자리 입력하라.",
+    placeholder: "77",
+    maxLength: 2,
+    submitLabel: "확인",
+    validator: (value) => /^\d{2}$/u.test(value),
+  },
+  favorite3: {
+    copy: "최근 꽂힌 숫자 3자리 입력하라.",
+    placeholder: "314",
+    maxLength: 3,
+    submitLabel: "확인",
+    validator: (value) => /^\d{3}$/u.test(value),
+  },
+  lunch2: {
+    copy: "오늘 아침 시각 뒤 2자리 입력하라.",
+    placeholder: "30",
+    maxLength: 2,
+    submitLabel: "확인",
+    validator: (value) => /^\d{2}$/u.test(value),
   },
 };
 
@@ -246,6 +286,10 @@ const EMPTY_SECURITY_ANSWERS: SecurityAnswers = {
   phonePrefix: "",
   middle4: "",
   account2: "",
+  birthMonthDay: "",
+  lucky2: "",
+  favorite3: "",
+  lunch2: "",
 };
 
 function pickRandomSecurityField(except?: SecurityField): SecurityField {
@@ -603,7 +647,6 @@ export default function WordBaseballGame({
     }
 
     const guess = currentGuess.join("");
-    const composedSurface = composeHangulWord(guess);
 
     // First check local word bank
     if (!isValidGuess(guess, validWordSet, WORD_LENGTH)) {
@@ -625,22 +668,10 @@ export default function WordBaseballGame({
         const cacheIndicator = validation.fromCache ? " (캐시)" : " (검증)";
         pushToast(`단어 확인됨${cacheIndicator}`, "success");
       } catch (error) {
-        // API failed, fall back to basic pattern check
-        if (
-          guess.length === WORD_LENGTH &&
-          composedSurface &&
-          /^[가-힣]+$/u.test(composedSurface)
-        ) {
-          pushToast("네트워크 오류. 한글 단어로 진행합니다.", "success");
-        } else {
-          setInvalidWordStreak((current) => {
-            const next = current + 1;
-            pushToast(getInvalidWordToast(next));
-            return next;
-          });
-          setShakeNonce((value) => value + 1);
-          return;
-        }
+        // Do not label as invalid before dictionary check completes.
+        pushToast("사전 점검 실패. 잠시 후 다시 시도해라.", "danger");
+        setShakeNonce((value) => value + 1);
+        return;
       }
     }
 
@@ -711,12 +742,7 @@ export default function WordBaseballGame({
 
   const handleSecurityNext = useCallback(() => {
     const value = securityAnswers[securityField];
-    const isValid =
-      securityField === "phonePrefix"
-        ? value === "010"
-        : securityField === "middle4"
-          ? /^\d{4}$/u.test(value)
-          : /^\d{2}$/u.test(value);
+    const isValid = SECURITY_PROMPTS[securityField].validator(value);
 
     if (!isValid) {
       setSecurityRetryErrors((current) => current + 1);
