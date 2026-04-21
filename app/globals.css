@@ -212,15 +212,15 @@ button:disabled {
   min-height: 100dvh;
   display: grid;
   place-items: center;
-  padding: var(--space-4);
+  padding: var(--space-2);
   background: var(--gradient-bg);
 }
 
 .gameCard {
-  width: min(100%, 28rem);
+  width: min(100%, 35rem);
   display: grid;
   grid-template-rows: auto 1fr;
-  max-height: min(100dvh - var(--space-8), 50rem);
+  max-height: min(100dvh - var(--space-4), 56rem);
   background: var(--color-surface);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-2xl);
@@ -236,7 +236,7 @@ button:disabled {
 }
 
 .hero {
-  padding: var(--space-5) var(--space-5) var(--space-4);
+  padding: var(--space-3) var(--space-4) var(--space-2);
   background: var(--gradient-surface);
   border-bottom: 1px solid var(--color-border-subtle);
 }
@@ -245,7 +245,7 @@ button:disabled {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: var(--space-2);
+  margin-bottom: var(--space-1);
 }
 
 .heroTitle {
@@ -306,9 +306,9 @@ button:disabled {
 }
 
 .body {
-  padding: var(--space-5);
+  padding: var(--space-3);
   display: grid;
-  gap: var(--space-4);
+  gap: var(--space-3);
   overflow: hidden auto;
 }
 
@@ -320,19 +320,19 @@ button:disabled {
 
 .gameCard:not(.statsCard) .bodyInner {
   display: grid;
-  gap: var(--space-4);
+  gap: var(--space-3);
 }
 
 /* === GAME SPECIFIC COMPONENTS === */
 .board {
   display: grid;
-  gap: var(--space-2);
+  gap: var(--space-1);
 }
 
 .boardRow {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
-  gap: var(--space-2);
+  gap: var(--space-1);
 }
 
 .boardRow--shake {
@@ -347,7 +347,7 @@ button:disabled {
   border-radius: var(--radius-md);
   background: var(--color-surface-elevated);
   color: var(--color-text);
-  font-size: var(--font-size-lg);
+  font-size: clamp(1.05rem, 1.6vw, 1.25rem);
   font-weight: 700;
   text-transform: uppercase;
   transition: all var(--duration-normal) var(--ease-out);
@@ -389,7 +389,7 @@ button:disabled {
 
 .controlRail {
   display: grid;
-  gap: var(--space-3);
+  gap: var(--space-2);
 }
 
 .attemptRail {
@@ -398,24 +398,24 @@ button:disabled {
 }
 
 .attemptChip {
-  padding: var(--space-2) var(--space-4);
+  padding: var(--space-1) var(--space-3);
   background: var(--color-surface-elevated);
   color: var(--color-text-muted);
   border-radius: var(--radius-full);
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-xs);
   font-weight: 600;
 }
 
 .hintActions {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(5rem, 1fr));
-  gap: var(--space-2);
+  grid-template-columns: repeat(auto-fit, minmax(6.25rem, 1fr));
+  gap: var(--space-1);
 }
 
 .hintButton {
   display: grid;
-  gap: var(--space-1);
-  padding: var(--space-3);
+  gap: 0.125rem;
+  padding: var(--space-2);
   background: var(--color-surface-elevated);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
@@ -440,22 +440,27 @@ button:disabled {
   font-size: var(--font-size-xs);
   font-weight: 700;
   color: var(--color-text);
+  line-height: 1.1;
 }
 
 .hintButtonNote {
-  font-size: var(--font-size-xs);
+  font-size: 0.675rem;
   color: var(--color-text-muted);
+  line-height: 1.05;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .hintButtonCount {
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-xs);
   font-weight: 900;
   color: var(--color-text);
 }
 
 .keyboard {
   display: grid;
-  gap: var(--space-2);
+  gap: var(--space-1);
 }
 
 .keyboardRow {
@@ -472,7 +477,7 @@ button:disabled {
 }
 
 .key {
-  min-height: 3rem;
+  min-height: 3.125rem;
   display: grid;
   place-items: center;
   padding: var(--space-2) var(--space-1);
@@ -539,13 +544,37 @@ button:disabled {
 }
 
 .actionButton {
-  min-height: 3rem;
+  min-height: 2.625rem;
 }
 
 .shareActions {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: var(--space-2);
+  gap: var(--space-1);
+}
+
+.gameDetails {
+  margin-top: var(--space-1);
+}
+
+.gameDetailsSummary {
+  color: var(--color-text-muted);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.gameDetailsBody {
+  margin-top: var(--space-1);
+  display: grid;
+  gap: 0.125rem;
+}
+
+.gameDetailsBody p {
+  margin: 0;
+  font-size: 0.7rem;
+  color: var(--color-text-subtle);
+  line-height: 1.35;
 }
 
 /* Loading States */
@@ -814,7 +843,7 @@ button:disabled {
 /* Responsive Design */
 @media (max-width: 32rem) {
   .pageShell {
-    padding: env(safe-area-inset-top) var(--space-2) env(safe-area-inset-bottom) var(--space-2);
+    padding: env(safe-area-inset-top) var(--space-1) env(safe-area-inset-bottom) var(--space-1);
     align-items: stretch;
   }
   
@@ -826,7 +855,7 @@ button:disabled {
   }
   
   .hero {
-    padding: var(--space-4) var(--space-4) var(--space-3);
+    padding: var(--space-3) var(--space-3) var(--space-2);
   }
   
   .heroTitle {
@@ -834,17 +863,17 @@ button:disabled {
   }
   
   .body {
-    padding: var(--space-4);
-    gap: var(--space-3);
+    padding: var(--space-2);
+    gap: var(--space-2);
   }
   
   .key {
-    min-height: 2.75rem;
+    min-height: 2.625rem;
     font-size: var(--font-size-xs);
   }
   
   .hintButton {
-    padding: var(--space-2);
+    padding: var(--space-1) var(--space-2);
   }
   
   .hintButtonNote {
