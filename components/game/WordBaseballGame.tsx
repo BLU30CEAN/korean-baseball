@@ -26,6 +26,7 @@ import {
   createDefaultGameStats,
   normalizeGameStats,
 } from "@/lib/game/stats";
+import { composeHangulWord, toJamoString } from "@/lib/game/hangul";
 import { judgeGuess, isValidGuess, mergeKeyboardState } from "@/lib/game/logic";
 import {
   validateWordRealtime,
@@ -199,6 +200,7 @@ const HINT_BUTTON_CONFIG: Record<HintKind, { title: string; note: string }> = {
 const HINT_BUTTON_ORDER: HintKind[] = ["remove"];
 const CORE_HINT_LIMIT = 1;
 const NICKNAME_STORAGE_KEY = "word-baseball.nickname.v1";
+const NICKNAME_MAX_LENGTH = 20;
 const THEME_STORAGE_KEY = "word-baseball.theme.v1";
 
 type ThemeMode = "dark" | "light";
@@ -357,6 +359,7 @@ export default function WordBaseballGame({
   const [coreHintUsed, setCoreHintUsed] = useState(0);
   const [nickname, setNickname] = useState("");
   const [nicknameInput, setNicknameInput] = useState("");
+  const [nicknameJamo, setNicknameJamo] = useState<string[]>([]);
   const [isNewUser, setIsNewUser] = useState(false);
   const [authReady, setAuthReady] = useState(false);
   const [authPending, setAuthPending] = useState(false);
@@ -473,6 +476,67 @@ export default function WordBaseballGame({
       }
     },
     [],
+  );
+
+  const nicknamePreviewText = useMemo(
+    () => composeHangulWord(nicknameJamo.join("")),
+    [nicknameJamo],
+  );
+
+  const nicknameJamoComplete = useMemo(() => {
+    if (nicknameJamo.length === 0) {
+      return false;
+    }
+    return toJamoString(nicknamePreviewText) === nicknameJamo.join("");
+  }, [nicknameJamo, nicknamePreviewText]);
+
+  const nicknameCanSubmit = useMemo(
+    () =>
+      nicknameJamoComplete &&
+      nicknamePreviewText.length >= 2 &&
+      nicknamePreviewText.length <= NICKNAME_MAX_LENGTH,
+    [nicknameJamoComplete, nicknamePreviewText],
+  );
+
+  const handleNicknamePress = useCallback(
+    (value: string) => {
+      if (authPending) {
+        return;
+      }
+
+      if (value === "Enter") {
+        if (!nicknameCanSubmit) {
+          return;
+        }
+        void submitNickname(nicknamePreviewText, isNewUser);
+        return;
+      }
+
+      if (value === "⌫" || value === "Backspace") {
+        setNicknameJamo((previous) => previous.slice(0, -1));
+        return;
+      }
+
+      if (!TYPEABLE_JAMO.has(value)) {
+        return;
+      }
+
+      setNicknameJamo((previous) => {
+        const next = applyJamoInput(previous, value);
+        const composed = composeHangulWord(next.join(""));
+        if (composed.length > NICKNAME_MAX_LENGTH) {
+          return previous;
+        }
+        return next;
+      });
+    },
+    [
+      authPending,
+      isNewUser,
+      nicknameCanSubmit,
+      nicknamePreviewText,
+      submitNickname,
+    ],
   );
 
   useEffect(() => {
@@ -943,6 +1007,72 @@ export default function WordBaseballGame({
     </div>
   );
 
+  const renderNicknameKeyboardButton = (keyEntry: {
+    physical: string;
+    label: string;
+  }) => {
+    if (keyEntry.physical === "Enter") {
+      const disabled = authPending || !nicknameCanSubmit;
+
+      return (
+        <button
+          key={keyEntry.physical}
+          type="button"
+          className={`key key--wide${disabled ? " key--disabled" : ""}`}
+          onClick={() => handleNicknamePress(keyEntry.label)}
+          disabled={disabled}
+        >
+          <span className="keyLabel">{keyEntry.label}</span>
+        </button>
+      );
+    }
+
+    if (keyEntry.physical === "Backspace") {
+      const disabled = authPending || nicknameJamo.length === 0;
+
+      return (
+        <button
+          key={keyEntry.physical}
+          type="button"
+          className={`key key--wide${disabled ? " key--disabled" : ""}`}
+          onClick={() => handleNicknamePress(keyEntry.label)}
+          disabled={disabled}
+        >
+          <span className="keyLabel">{keyEntry.label}</span>
+        </button>
+      );
+    }
+
+    const letterDisabled = authPending;
+
+    return (
+      <button
+        key={keyEntry.physical}
+        type="button"
+        className={`key${letterDisabled ? " key--disabled" : ""}`}
+        onClick={() => handleNicknamePress(keyEntry.label)}
+        disabled={letterDisabled}
+        aria-label={keyEntry.label}
+      >
+        <span className="keyLabel">{keyEntry.label}</span>
+      </button>
+    );
+  };
+
+  const renderNicknameKeyboardRow = (
+    row: readonly { physical: string; label: string }[],
+    rowKey: string,
+    rowClassName = "",
+  ) => (
+    <div
+      key={rowKey}
+      className={`keyboardRow${rowClassName ? ` ${rowClassName}` : ""}`}
+      style={{ gridTemplateColumns: `repeat(${row.length}, minmax(0, 1fr))` }}
+    >
+      {row.map(renderNicknameKeyboardButton)}
+    </div>
+  );
+
   const handleLetter = useCallback(
     (letter: string) => {
       if (status !== "playing" || !TYPEABLE_JAMO.has(letter)) {
@@ -982,6 +1112,13 @@ export default function WordBaseballGame({
     [commitGuess, handleBackspace, handleLetter],
   );
 
+  const attemptsLeft = Math.max(MAX_ATTEMPTS - history.length, 0);
+  const isLoading =
+    !answer ||
+    validWords.length === 0 ||
+    answerPool.length === 0 ||
+    playableAnswerCount === 0;
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.repeat) {
@@ -995,6 +1132,20 @@ export default function WordBaseballGame({
       }
 
       event.preventDefault();
+
+      if (authReady && !nickname) {
+        handleNicknamePress(resolved);
+        return;
+      }
+
+      if (!nickname) {
+        return;
+      }
+
+      if (isLoading) {
+        return;
+      }
+
       handlePress(resolved);
     };
 
@@ -1002,14 +1153,7 @@ export default function WordBaseballGame({
     return () => {
       window.removeEventListener("keydown", onKeyDown);
     };
-  }, [handlePress]);
-
-  const attemptsLeft = Math.max(MAX_ATTEMPTS - history.length, 0);
-  const isLoading =
-    !answer ||
-    validWords.length === 0 ||
-    answerPool.length === 0 ||
-    playableAnswerCount === 0;
+  }, [authReady, handleNicknamePress, handlePress, isLoading, nickname]);
 
   const [isLoadingSlowMessage, setIsLoadingSlowMessage] = useState(false);
   const isWordBankLoading = authReady && !!nickname && isLoading;
@@ -1140,8 +1284,11 @@ export default function WordBaseballGame({
 
   if (!nickname) {
     return (
-      <main className="loadingState" data-theme={themeMode}>
-        <div className="loadingCard authCard authCard--brand">
+      <main
+        className="loadingState loadingState--nickname"
+        data-theme={themeMode}
+      >
+        <div className="loadingCard authCard authCard--brand nicknameAuthCard">
           <button
             type="button"
             className="themeToggle"
@@ -1154,13 +1301,22 @@ export default function WordBaseballGame({
           <p className="heroCopy">
             닉네임을 입력하고 시작해라. 닉네임은 중복 허용되지 않는다.
           </p>
-          <input
-            className="authInput"
-            value={nicknameInput}
-            onChange={(event) => setNicknameInput(event.target.value)}
-            placeholder="닉네임"
-            maxLength={20}
-          />
+          <div className="nicknamePreviewShell">
+            <div
+              className="authInput nicknamePreview"
+              role="textbox"
+              aria-readonly="true"
+              aria-label="닉네임"
+            >
+              {nicknamePreviewText.length > 0 ? nicknamePreviewText : " "}
+            </div>
+            {nicknameJamo.length > 0 && !nicknameJamoComplete ? (
+              <p className="nicknameIncompleteNote">자모 조합을 마저 완성해라.</p>
+            ) : null}
+            <p className="nicknameLengthHint">
+              {nicknamePreviewText.length}/{NICKNAME_MAX_LENGTH}자
+            </p>
+          </div>
           <label className="authCheck">
             <input
               type="checkbox"
@@ -1172,12 +1328,15 @@ export default function WordBaseballGame({
           {authError ? <p className="authError">{authError}</p> : null}
           <button
             type="button"
-            className={`key actionButton${authPending ? " key--disabled" : ""}`}
-            disabled={authPending}
+            className={`key actionButton${authPending || !nicknameCanSubmit ? " key--disabled" : ""}`}
+            disabled={authPending || !nicknameCanSubmit}
             onClick={async () => {
-              const success = await submitNickname(nicknameInput, isNewUser);
+              const success = await submitNickname(nicknamePreviewText, isNewUser);
               if (success) {
-                setNicknameInput((value) => value.trim().replace(/\s+/g, " "));
+                setNicknameInput(
+                  nicknamePreviewText.trim().replace(/\s+/g, " "),
+                );
+                setNicknameJamo([]);
               }
             }}
           >
@@ -1191,6 +1350,23 @@ export default function WordBaseballGame({
             )}
           </button>
           <p className="creditLine">copyright © gurengeo upda. BBO feat.PSY</p>
+        </div>
+
+        <div className="nicknameKeyboardDock" aria-label="닉네임 입력 키보드">
+          <div className="keyboard nicknameKeyboard">
+            {QWERTY_KEY_ROWS.map((row, rowIndex) =>
+              renderNicknameKeyboardRow(
+                row,
+                `nickname-qwerty-${rowIndex}`,
+                rowIndex === 1
+                  ? "keyboardRow--offset-1"
+                  : rowIndex === 2
+                    ? "keyboardRow--offset-2"
+                    : "",
+              ),
+            )}
+            {renderNicknameKeyboardRow(ACTION_KEY_ROW, "nickname-actions")}
+          </div>
         </div>
       </main>
     );

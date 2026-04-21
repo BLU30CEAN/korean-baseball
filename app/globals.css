@@ -557,6 +557,69 @@ button:disabled {
   background: var(--gradient-bg);
 }
 
+.loadingState--nickname {
+  place-items: start center;
+  align-content: start;
+  padding-bottom: calc(11rem + env(safe-area-inset-bottom, 0px));
+  box-sizing: border-box;
+}
+
+.nicknameAuthCard {
+  width: min(100%, 24rem);
+  margin-inline: auto;
+}
+
+.nicknamePreviewShell {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.nicknamePreview {
+  min-height: 3rem;
+  display: flex;
+  align-items: center;
+  word-break: break-all;
+  cursor: default;
+  user-select: none;
+}
+
+.nicknameIncompleteNote {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-danger);
+}
+
+.nicknameLengthHint {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  text-align: right;
+}
+
+.nicknameKeyboardDock {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 100;
+  padding: var(--space-2) var(--space-3)
+    max(var(--space-3), env(safe-area-inset-bottom, 0px));
+  background: color-mix(in oklab, var(--color-surface) 92%, transparent);
+  backdrop-filter: blur(10px);
+  border-top: 1px solid var(--color-border-subtle);
+  box-shadow: 0 -10px 28px oklch(0 0 0 / 0.18);
+}
+
+.nicknameKeyboard {
+  max-width: 28rem;
+  margin-inline: auto;
+}
+
+.nicknameKeyboard .key {
+  min-height: 2.75rem;
+  font-size: var(--font-size-xs);
+}
+
 .loadingCard {
   max-width: 20rem;
   padding: var(--space-8) var(--space-6);
