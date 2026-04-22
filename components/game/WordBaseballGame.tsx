@@ -1076,7 +1076,7 @@ export default function WordBaseballGame({
 
     // scale only when content overflows. `-1` to be safe against sub-pixel rounding.
     const nextScale = Math.max(
-      0,
+      0.9,
       Math.min(1, (availableHeight - 1) / contentHeight),
     );
 
