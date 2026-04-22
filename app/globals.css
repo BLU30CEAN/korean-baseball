@@ -201,6 +201,7 @@ button {
   cursor: pointer;
   border: 0;
   background: none;
+  touch-action: manipulation;
 }
 
 button:disabled {
@@ -233,6 +234,12 @@ button:disabled {
 .gameCard:hover {
   transform: translateY(-1px);
   box-shadow: var(--shadow-xl);
+}
+
+@media (hover: none), (pointer: coarse) {
+  .gameCard:hover {
+    transform: none;
+  }
 }
 
 .hero {
@@ -299,10 +306,8 @@ button:disabled {
   transition: all var(--duration-fast) var(--ease-out);
 }
 
-.themeToggle:hover {
-  background: var(--color-border);
-  border-color: var(--color-primary);
-  transform: translateY(-1px);
+.themeToggle:active {
+  transform: translateY(0);
 }
 
 .body {
@@ -321,6 +326,18 @@ button:disabled {
 .gameCard:not(.statsCard) .bodyInner {
   display: grid;
   gap: var(--space-3);
+}
+
+.bodyInner--result {
+  gap: var(--space-2);
+}
+
+.bodyInner--result .board {
+  gap: 0.2rem;
+}
+
+.bodyInner--result .boardRow {
+  gap: 0.2rem;
 }
 
 /* === GAME SPECIFIC COMPONENTS === */
@@ -387,6 +404,63 @@ button:disabled {
   animation: tileReveal var(--duration-slow) var(--ease-out);
 }
 
+.banner {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-elevated);
+  box-shadow: var(--shadow-sm);
+}
+
+.banner--win {
+  border-color: color-mix(in oklab, var(--color-success) 55%, var(--color-border));
+  background: color-mix(in oklab, var(--color-success) 16%, var(--color-surface));
+}
+
+.banner--lose {
+  border-color: color-mix(in oklab, var(--color-danger) 60%, var(--color-border));
+  background: color-mix(in oklab, var(--color-danger) 14%, var(--color-surface));
+}
+
+.bannerTitle {
+  font-size: var(--font-size-lg);
+  font-weight: 800;
+  line-height: 1.25;
+  color: var(--color-text);
+}
+
+.bannerCopy {
+  font-size: var(--font-size-sm);
+  line-height: 1.45;
+  color: var(--color-text-muted);
+}
+
+.resultDetails {
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  background: color-mix(in oklab, var(--color-surface) 90%, transparent);
+}
+
+.resultDetailsSummary {
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.resultDetails .bannerCopy {
+  padding: 0 var(--space-3) var(--space-3);
+  color: var(--color-text);
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 6;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
 .controlRail {
   display: grid;
   gap: var(--space-2);
@@ -423,9 +497,8 @@ button:disabled {
   transition: all var(--duration-fast) var(--ease-out);
 }
 
-.hintButton:hover:not(.key--disabled) {
-  background: var(--color-border);
-  transform: translateY(-1px);
+.hintButton:active:not(.key--disabled) {
+  transform: translateY(0);
 }
 
 .hintButton--remove:not(.key--disabled) {
@@ -489,15 +562,12 @@ button:disabled {
   font-weight: 600;
   text-transform: uppercase;
   transition: all var(--duration-fast) var(--ease-out);
-}
-
-.key:hover:not(.key--disabled) {
-  background: var(--color-border);
-  transform: translateY(-1px);
+  -webkit-tap-highlight-color: transparent;
 }
 
 .key:active:not(.key--disabled) {
-  transform: translateY(0);
+  transform: scale(0.98);
+  filter: brightness(0.96);
 }
 
 .key--wide {
@@ -539,8 +609,56 @@ button:disabled {
   color: white;
 }
 
-.key--danger:hover:not(.key--disabled) {
-  background: var(--color-danger-hover);
+.key:focus-visible,
+.themeToggle:focus-visible,
+.hintButton:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .themeToggle:hover {
+    background: var(--color-border);
+    border-color: var(--color-primary);
+    transform: translateY(-1px);
+  }
+
+  .hintButton:hover:not(.key--disabled) {
+    background: var(--color-border);
+    transform: translateY(-1px);
+  }
+
+  .key:hover:not(.key--disabled) {
+    background: var(--color-border);
+    transform: translateY(-1px);
+  }
+
+  .key--danger:hover:not(.key--disabled) {
+    background: var(--color-danger-hover);
+  }
+}
+
+@media (hover: none), (pointer: coarse) {
+  .themeToggle:hover,
+  .hintButton:hover:not(.key--disabled),
+  .key:hover:not(.key--disabled),
+  .key--danger:hover:not(.key--disabled) {
+    transform: none;
+  }
+
+  .themeToggle:hover {
+    background: var(--color-surface-elevated);
+    border-color: var(--color-border);
+  }
+
+  .hintButton:hover:not(.key--disabled),
+  .key:hover:not(.key--disabled) {
+    background: var(--color-surface-elevated);
+  }
+
+  .key--danger:hover:not(.key--disabled) {
+    background: var(--color-danger);
+  }
 }
 
 .actionButton {
@@ -551,6 +669,10 @@ button:disabled {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: var(--space-1);
+}
+
+.shareActions--result {
+  grid-template-columns: repeat(2, 1fr);
 }
 
 .gameDetails {
@@ -816,6 +938,30 @@ button:disabled {
   color: var(--color-danger);
 }
 
+[data-theme="light"] .banner--win {
+  border-color: color-mix(in oklab, var(--color-success) 45%, var(--color-border));
+  background: color-mix(in oklab, var(--color-success) 10%, white);
+}
+
+[data-theme="light"] .banner--lose {
+  border-color: color-mix(in oklab, var(--color-danger) 45%, var(--color-border));
+  background: color-mix(in oklab, var(--color-danger) 10%, white);
+}
+
+[data-theme="light"] .bannerCopy {
+  color: var(--color-text);
+}
+
+[data-theme="light"] .resultDetails {
+  background: white;
+  border-color: var(--color-border);
+}
+
+[data-theme="light"] .toast--danger {
+  background: color-mix(in oklab, var(--color-danger) 12%, white);
+  color: color-mix(in oklab, var(--color-danger) 80%, black);
+}
+
 /* Animations */
 @keyframes shake {
   0%, 100% { transform: translateX(0); }
@@ -866,9 +1012,26 @@ button:disabled {
     padding: var(--space-2);
     gap: var(--space-2);
   }
+
+  .gameCard:not(.statsCard) .body--scaled {
+    overflow: hidden;
+  }
   
   .key {
-    min-height: 3rem;
+    min-height: 3.25rem;
+    font-size: var(--font-size-sm);
+  }
+
+  .banner {
+    padding: var(--space-2);
+    gap: var(--space-1);
+  }
+
+  .bannerTitle {
+    font-size: var(--font-size-base);
+  }
+
+  .bannerCopy {
     font-size: var(--font-size-xs);
   }
   
@@ -878,6 +1041,21 @@ button:disabled {
   
   .hintButtonNote {
     display: none;
+  }
+
+  .hintButtonTitle,
+  .hintButtonCount,
+  .attemptChip {
+    font-size: var(--font-size-sm);
+  }
+
+  .gameDetailsSummary,
+  .gameDetailsBody p {
+    font-size: var(--font-size-xs);
+  }
+
+  .shareActions {
+    grid-template-columns: repeat(2, 1fr);
   }
   
   .loadingCard {

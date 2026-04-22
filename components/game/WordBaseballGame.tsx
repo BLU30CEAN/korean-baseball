@@ -220,6 +220,10 @@ const SECURITY_FIELD_KEYS: SecurityField[] = [
   "phonePrefix",
   "middle4",
   "account2",
+  "birthMonthDay",
+  "lucky2",
+  "favorite3",
+  "lunch2",
 ];
 
 const SECURITY_PROMPTS: Record<
@@ -1044,6 +1048,7 @@ export default function WordBaseballGame({
 
   const hasWon = status === "won";
   const hasLost = status === "lost";
+  const isGameEnded = hasWon || hasLost;
 
   const recalcBodyScale = useCallback(() => {
     if (typeof window === "undefined") {
@@ -1075,8 +1080,12 @@ export default function WordBaseballGame({
     }
 
     // scale only when content overflows. `-1` to be safe against sub-pixel rounding.
+    const isTouchDevice = window.matchMedia(
+      "(hover: none), (pointer: coarse)",
+    ).matches;
+    const minScale = isTouchDevice ? 0.82 : 0.9;
     const nextScale = Math.max(
-      0.9,
+      minScale,
       Math.min(1, (availableHeight - 1) / contentHeight),
     );
 
@@ -1260,7 +1269,7 @@ export default function WordBaseballGame({
 
         <div className="body body--scaled" ref={bodyRef}>
           <div
-            className="bodyInner"
+            className={`bodyInner${isGameEnded ? " bodyInner--result" : ""}`}
             ref={bodyInnerRef}
             style={{
               transform: `scale(${bodyScale})`,
@@ -1339,72 +1348,76 @@ export default function WordBaseballGame({
             })}
           </div>
 
-          <div className="controlRail" aria-label="남은 시도와 힌트">
-            <div className="attemptRail">
-              <span className="attemptChip">
-                남은 시도 {attemptsLeft} / {MAX_ATTEMPTS}
-              </span>
-            </div>
+          {!isGameEnded ? (
+            <div className="controlRail" aria-label="남은 시도와 힌트">
+              <div className="attemptRail">
+                <span className="attemptChip">
+                  남은 시도 {attemptsLeft} / {MAX_ATTEMPTS}
+                </span>
+              </div>
 
-            <div className="hintActions" aria-label="힌트">
-              {HINT_BUTTON_ORDER.map((kind) => {
-                const config = HINT_BUTTON_CONFIG[kind];
-                const disabled = status !== "playing" || hintCounts[kind] <= 0;
+              <div className="hintActions" aria-label="힌트">
+                {HINT_BUTTON_ORDER.map((kind) => {
+                  const config = HINT_BUTTON_CONFIG[kind];
+                  const disabled = status !== "playing" || hintCounts[kind] <= 0;
 
-                return (
+                  return (
+                    <button
+                      key={kind}
+                      type="button"
+                      className={`key hintButton hintButton--${kind}${disabled ? " key--disabled" : ""}`}
+                      onClick={() => handleHint(kind)}
+                      disabled={disabled}
+                      aria-label={`${config.title} ${hintCounts[kind]}회 남음`}
+                    >
+                      <span className="hintButtonTitle">{config.title}</span>
+                      <span className="hintButtonNote">{config.note}</span>
+                      <span className="hintButtonCount">
+                        {hintCounts[kind]}회
+                      </span>
+                    </button>
+                  );
+                })}
+                {status === "playing" && attemptsLeft === 1 ? (
                   <button
-                    key={kind}
                     type="button"
-                    className={`key hintButton hintButton--${kind}${disabled ? " key--disabled" : ""}`}
-                    onClick={() => handleHint(kind)}
-                    disabled={disabled}
-                    aria-label={`${config.title} ${hintCounts[kind]}회 남음`}
+                    className={`key hintButton hintButton--green${coreHintUsed >= CORE_HINT_LIMIT ? " key--disabled" : ""}`}
+                    onClick={handleCoreHint}
+                    disabled={coreHintUsed >= CORE_HINT_LIMIT}
+                    aria-label={`핵심 힌트 ${Math.max(CORE_HINT_LIMIT - coreHintUsed, 0)}회 남음`}
                   >
-                    <span className="hintButtonTitle">{config.title}</span>
-                    <span className="hintButtonNote">{config.note}</span>
+                    <span className="hintButtonTitle">핵심 힌트</span>
+                    <span className="hintButtonNote">못 찾은 글자 1개</span>
                     <span className="hintButtonCount">
-                      {hintCounts[kind]}회
+                      {Math.max(CORE_HINT_LIMIT - coreHintUsed, 0)}회
                     </span>
                   </button>
-                );
-              })}
-              {status === "playing" && attemptsLeft === 1 ? (
-                <button
-                  type="button"
-                  className={`key hintButton hintButton--green${coreHintUsed >= CORE_HINT_LIMIT ? " key--disabled" : ""}`}
-                  onClick={handleCoreHint}
-                  disabled={coreHintUsed >= CORE_HINT_LIMIT}
-                  aria-label={`핵심 힌트 ${Math.max(CORE_HINT_LIMIT - coreHintUsed, 0)}회 남음`}
-                >
-                  <span className="hintButtonTitle">핵심 힌트</span>
-                  <span className="hintButtonNote">못 찾은 글자 1개</span>
-                  <span className="hintButtonCount">
-                    {Math.max(CORE_HINT_LIMIT - coreHintUsed, 0)}회
-                  </span>
-                </button>
-              ) : null}
+                ) : null}
+              </div>
             </div>
-          </div>
+          ) : null}
 
-          <div className="keyboard" aria-label="입력 키보드">
-            {QWERTY_KEY_ROWS.map((row, rowIndex) =>
-              renderKeyboardRow(
-                row,
-                `qwerty-${rowIndex}`,
-                rowIndex === 1
-                  ? "keyboardRow--offset-1"
-                  : rowIndex === 2
-                    ? "keyboardRow--offset-2"
-                    : "",
-              ),
-            )}
-            {renderKeyboardRow(
-              ACTION_KEY_ROW,
-              ACTION_KEY_ROW.map((key) => key.physical).join("-"),
-            )}
-          </div>
+          {!isGameEnded ? (
+            <div className="keyboard" aria-label="입력 키보드">
+              {QWERTY_KEY_ROWS.map((row, rowIndex) =>
+                renderKeyboardRow(
+                  row,
+                  `qwerty-${rowIndex}`,
+                  rowIndex === 1
+                    ? "keyboardRow--offset-1"
+                    : rowIndex === 2
+                      ? "keyboardRow--offset-2"
+                      : "",
+                ),
+              )}
+              {renderKeyboardRow(
+                ACTION_KEY_ROW,
+                ACTION_KEY_ROW.map((key) => key.physical).join("-"),
+              )}
+            </div>
+          ) : null}
 
-          <div className="shareActions">
+          <div className={`shareActions${isGameEnded ? " shareActions--result" : ""}`}>
             <button
               type="button"
               className={`key key--danger actionButton${status !== "playing" ? " key--disabled" : ""}`}
@@ -1428,7 +1441,7 @@ export default function WordBaseballGame({
             ) : null}
           </div>
 
-            <p className="creditLine">BOO feat.PSY</p>
+            <p className="creditLine">BBO feat.PSY</p>
           </div>
 
           {securityOpen ? (
