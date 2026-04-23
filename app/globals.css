@@ -320,7 +320,9 @@ button:disabled {
 /* Game layout: keep board+keyboard in view (no internal scrollbars). */
 .gameCard:not(.statsCard) .body--scaled {
   display: block;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .gameCard:not(.statsCard) .bodyInner {
@@ -1014,7 +1016,8 @@ button:disabled {
   }
 
   .gameCard:not(.statsCard) .body--scaled {
-    overflow: hidden;
+    overflow-x: hidden;
+    overflow-y: auto;
   }
   
   .key {
