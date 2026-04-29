@@ -335,11 +335,25 @@ button:disabled {
 }
 
 .bodyInner--result .board {
-  gap: 0.2rem;
+  gap: 0.1875rem;
 }
 
 .bodyInner--result .boardRow {
-  gap: 0.2rem;
+  gap: 0.1875rem;
+}
+
+@media (max-width: 32rem) {
+  .bodyInner--result {
+    gap: var(--space-1);
+  }
+
+  .bodyInner--result .board {
+    gap: 0.125rem;
+  }
+
+  .bodyInner--result .boardRow {
+    gap: 0.125rem;
+  }
 }
 
 /* === GAME SPECIFIC COMPONENTS === */
@@ -1003,15 +1017,19 @@ button:disabled {
   }
   
   .hero {
-    padding: var(--space-3) var(--space-3) var(--space-2);
+    padding: var(--space-2) var(--space-3) var(--space-1);
   }
   
   .heroTitle {
-    font-size: var(--font-size-2xl);
+    font-size: var(--font-size-xl);
   }
   
   .body {
-    padding: var(--space-2);
+    padding: var(--space-1);
+    gap: var(--space-1);
+  }
+
+  .bodyInner {
     gap: var(--space-2);
   }
 
@@ -1021,7 +1039,7 @@ button:disabled {
   }
   
   .key {
-    min-height: 3.25rem;
+    min-height: 2.75rem;
     font-size: var(--font-size-sm);
   }
 
@@ -1068,23 +1086,60 @@ button:disabled {
   .loginBrand {
     font-size: clamp(2rem, 12vw, 3rem);
   }
+
+  .board {
+    gap: 0.1875rem;
+  }
+
+  .boardRow {
+    gap: 0.1875rem;
+  }
+
+  .keyboard {
+    gap: 0.1875rem;
+  }
+
+  .keyboardRow {
+    gap: 0.1875rem;
+  }
 }
 
 @media (max-width: 22.5rem) {
   .keyboardRow--offset-1 {
-    margin-left: var(--space-3);
+    margin-left: var(--space-2);
   }
   
   .keyboardRow--offset-2 {
-    margin-left: var(--space-6);
+    margin-left: var(--space-4);
   }
   
   .key {
-    min-height: 2.5rem;
+    min-height: 2.25rem;
     padding: var(--space-1);
+    font-size: 0.75rem;
   }
   
   .hintActions {
-    grid-template-columns: repeat(auto-fit, minmax(4rem, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(3.5rem, 1fr));
+  }
+
+  .board {
+    gap: 0.125rem;
+  }
+
+  .boardRow {
+    gap: 0.125rem;
+  }
+
+  .keyboard {
+    gap: 0.125rem;
+  }
+
+  .keyboardRow {
+    gap: 0.125rem;
+  }
+
+  .tile {
+    font-size: clamp(0.9rem, 1.6vw, 1.2rem);
   }
 }

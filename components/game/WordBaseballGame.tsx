@@ -1079,14 +1079,29 @@ export default function WordBaseballGame({
       return;
     }
 
-    // scale only when content overflows. `-1` to be safe against sub-pixel rounding.
+    // 더 공격적인 스케일링: 게임보드+키보드가 반드시 한 화면에 들어가야 함
     const isTouchDevice = window.matchMedia(
       "(hover: none), (pointer: coarse)",
     ).matches;
-    const minScale = isTouchDevice ? 0.82 : 0.9;
+    const isSmallScreen = window.matchMedia("(max-width: 32rem)").matches;
+    const isVerySmallScreen = window.matchMedia("(max-width: 22.5rem)").matches;
+    
+    let minScale: number;
+    if (isVerySmallScreen) {
+      minScale = 0.5; // 매우 작은 화면에서는 더욱 작게
+    } else if (isSmallScreen) {
+      minScale = 0.6; // 작은 화면에서는 작게
+    } else if (isTouchDevice) {
+      minScale = 0.65; // 터치 기기는 조금 작게
+    } else {
+      minScale = 0.75; // 데스크톱은 적당히
+    }
+    
+    // 여유 공간을 최소화해서 최대한 많이 들어가도록
+    const margin = isSmallScreen ? 2 : 3; 
     const nextScale = Math.max(
       minScale,
-      Math.min(1, (availableHeight - 1) / contentHeight),
+      Math.min(1, (availableHeight - margin) / contentHeight),
     );
 
     setBodyScale((prev) =>
